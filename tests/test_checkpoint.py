@@ -34,11 +34,10 @@ def test_attach_lift_and_rotate_checkpoint() -> None:
     assert [(state["target_yaw_deg"], state["target_tilt_deg"]) for state in report["states"]] == [
         (0, 0),
         (90, 0),
-        (0, 35),
         (0, 0),
     ]
-    assert report["states"][2]["tool_orientation_change_deg"] == pytest.approx(35.0, abs=0.5)
-    assert report["states"][3]["tool_orientation_change_deg"] == pytest.approx(0.0, abs=0.5)
+    assert report["states"][1]["tool_orientation_change_deg"] == pytest.approx(90.0, abs=0.5)
+    assert report["states"][2]["tool_orientation_change_deg"] == pytest.approx(0.0, abs=0.5)
 
 
 @pytest.mark.parametrize("box_spec", [MINIMUM_BOX, NOMINAL_BOX, MAXIMUM_BOX])
@@ -50,7 +49,6 @@ def test_fixed_motion_supports_box_range_endpoints(box_spec) -> None:
     assert [state["name"] for state in report["states"]] == [
         "SCAN_YAW_0",
         "SCAN_YAW_90",
-        "SCAN_TILT_35",
         "RETURNED_VERTICAL",
     ]
 

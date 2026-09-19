@@ -162,7 +162,6 @@ def _execute_checkpoint(
     commands = (
         ("LIFT", SCAN_POSES[0], True),
         ("ROTATE_YAW_90", SCAN_POSES[1], False),
-        ("TILT_35", SCAN_POSES[2], False),
         ("RETURN_VERTICAL", RETURN_POSE, False),
     )
 
@@ -209,7 +208,7 @@ def _execute_checkpoint(
             "box_mass_kg": environment.box_spec.mass_kg,
             "grasp_model": "declared_rigid_equality_weld",
             "fixed_motion": True,
-            "tilt_angle_deg": 35,
+            "tilt_angle_deg": 0,
             "pickup_perception": False,
             "measurement": False,
         },

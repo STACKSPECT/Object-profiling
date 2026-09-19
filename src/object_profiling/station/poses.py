@@ -13,7 +13,7 @@ class ScanPose:
     """Pose de escaneo de la trayectoria fija.
 
     La secuencia no depende del resultado de la medicion: todas las cajas
-    ejecutan las mismas tres poses.
+    ejecutan las mismas poses de escaneo.
     """
 
     name: str
@@ -30,11 +30,12 @@ class ScanPose:
         return motion.target(self.yaw_deg)
 
 
-SCAN_POSES: tuple[ScanPose, ...] = (
-    ScanPose("SCAN_YAW_0", 0, 0),
-    ScanPose("SCAN_YAW_90", 90, 0),
-    ScanPose("SCAN_TILT_35", 0, 35),
-)
+SCAN_YAW_0 = ScanPose("SCAN_YAW_0", 0, 0)
+SCAN_YAW_90 = ScanPose("SCAN_YAW_90", 90, 0)
+# Conservada para ablacion EXP-008. Fuera del ciclo de produccion de esta rama.
+SCAN_TILT_35 = ScanPose("SCAN_TILT_35", 0, 35)
+
+SCAN_POSES: tuple[ScanPose, ...] = (SCAN_YAW_0, SCAN_YAW_90)
 
 RETURN_POSE = ScanPose("RETURNED_VERTICAL", 0, 0)
 

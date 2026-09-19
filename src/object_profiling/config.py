@@ -56,7 +56,7 @@ class EstimatorConfig:
     bootstrap_samples: int = 24
     bootstrap_point_cap: int = 12_000
     minimum_points: int = 800
-    minimum_views: int = 3
+    minimum_views: int = 2
     # Cobertura: cuantos puntos deben apoyar cada extremo dentro de la loncha.
     # El extremo peor medido sobre el rango de cajas aporta 121 puntos.
     coverage_slab_m: float = 0.002

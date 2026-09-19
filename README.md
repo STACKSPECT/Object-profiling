@@ -175,3 +175,4 @@ python -m pytest -p no:cacheprovider
 - [EXP-005: registro multivista](docs/findings/EXP-005-registro-multivista.md)
 - [EXP-006: estimación del cuboide](docs/findings/EXP-006-estimacion-cuboide.md)
 - [EXP-007: benchmark de dimensiones variables](docs/findings/EXP-007-benchmark-dimensiones-variables.md)
+- [EXP-008: ablación de poses de escaneo](docs/findings/EXP-008-ablacion-poses-escaneo.md)

@@ -4,11 +4,11 @@ import mujoco
 import numpy as np
 import pytest
 
-from object_profiling.camera_audit import project_box_corners
-from object_profiling.checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
-from object_profiling.controller import ScanPoseController
-from object_profiling.environment import ProfilingEnvironment
-from object_profiling.poses import SCAN_POSES
+from object_profiling.evaluation.audits.camera import project_box_corners
+from object_profiling.evaluation.checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
+from object_profiling.station.controller import ScanPoseController
+from object_profiling.station.environment import ProfilingEnvironment
+from object_profiling.station.poses import SCAN_POSES
 
 
 def test_fixed_camera_configuration() -> None:

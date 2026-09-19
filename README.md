@@ -109,8 +109,8 @@ En macOS las dos con visor de MuJoCo necesitan `mjpython`. El showcase mide las
 seis cajas seguidas en un único visor, porque MuJoCo solo admite uno por proceso:
 
 ```bash
-mjpython -m object_profiling.demo --visual --seed 42 --speed 1.0
-mjpython -m object_profiling.showcase --visual --speed 1.0
+mjpython -m object_profiling.presentation.demo --visual --seed 42 --speed 1.0
+mjpython -m object_profiling.presentation.showcase --visual --speed 1.0
 ```
 
 `--speed` controla únicamente la reproducción del visor. No modifica el timestep,

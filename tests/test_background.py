@@ -4,17 +4,17 @@ import mujoco
 import numpy as np
 import pytest
 
-from object_profiling.background import (
+from object_profiling.measure.background import (
     BackgroundSet,
     MissingBackgroundError,
     PoseBackground,
-    capture_pose_backgrounds,
 )
-from object_profiling.checkpoint import NOMINAL_BOX
+from object_profiling.evaluation.checkpoint import NOMINAL_BOX
 from object_profiling.contracts import RejectionReason
-from object_profiling.environment import BOX_PARKING_POSITION_M, ProfilingEnvironment
-from object_profiling.poses import SCAN_POSES
-from object_profiling.sensors import RGBDSensor
+from object_profiling.station.backgrounds import capture_pose_backgrounds
+from object_profiling.station.environment import BOX_PARKING_POSITION_M, ProfilingEnvironment
+from object_profiling.station.poses import SCAN_POSES
+from object_profiling.station.camera import RGBDSensor
 
 
 def _empty_station() -> ProfilingEnvironment:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import mujoco
 import numpy as np
 
-from .contracts import RejectionReason
+from ..contracts import RejectionReason
 from .environment import ProfilingEnvironment
 
 

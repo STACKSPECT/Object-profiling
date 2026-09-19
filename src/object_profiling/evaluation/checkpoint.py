@@ -11,11 +11,11 @@ from typing import Callable
 import mujoco
 import numpy as np
 
-from .config import AppConfig
-from .contracts import Dimensions3D
-from .controller import MotionError, ScanPoseController
-from .environment import BoxSpec, ProfilingEnvironment
-from .poses import RETURN_POSE, SCAN_POSES
+from ..config import AppConfig
+from ..contracts import Dimensions3D
+from ..station.controller import MotionError, ScanPoseController
+from ..station.environment import BoxSpec, ProfilingEnvironment
+from ..station.poses import RETURN_POSE, SCAN_POSES
 
 
 NOMINAL_BOX = BoxSpec(

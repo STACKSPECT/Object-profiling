@@ -6,7 +6,9 @@ from .contracts import (
     ObjectDimensions,
     RejectionReason,
     ViewDescriptor,
+    snap_to_catalogue,
 )
+from .measure.measurement import measure
 
 __all__ = [
     "Dimensions3D",
@@ -14,4 +16,6 @@ __all__ = [
     "ObjectDimensions",
     "RejectionReason",
     "ViewDescriptor",
+    "measure",
+    "snap_to_catalogue",
 ]

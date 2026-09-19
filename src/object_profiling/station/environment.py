@@ -5,8 +5,8 @@ from dataclasses import dataclass
 import mujoco
 import numpy as np
 
-from .config import AppConfig, SCENE_PATH
-from .contracts import Dimensions3D, snap_to_catalogue
+from ..config import AppConfig, SCENE_PATH
+from ..contracts import Dimensions3D, snap_to_catalogue
 
 
 @dataclass(frozen=True)

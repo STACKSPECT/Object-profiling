@@ -12,9 +12,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .background import BackgroundSet, MissingBackgroundError
-from .config import AppConfig
-from .contracts import (
+from ..config import AppConfig
+from ..contracts import (
     CameraObservation,
     CuboidPose,
     ObjectDimensions,
@@ -22,10 +21,11 @@ from .contracts import (
     ViewDescriptor,
     snap_to_catalogue,
 )
+from .background import BackgroundSet, MissingBackgroundError
+from .backproject import lateral_pitch_m
 from .geometry import CuboidEstimate, axis_assignment, estimate_cuboid
 from .perception import ScanView, observation_to_scan_view
 from .registration import TOOL_FRAME_ID, FusedCloud, fuse_scan_views
-from .sensors import lateral_pitch_m
 
 # Seed del bootstrap de incertidumbre. Es deliberadamente independiente de la
 # seed que genera la escena: reutilizarla acoplaria el estimador al episodio.

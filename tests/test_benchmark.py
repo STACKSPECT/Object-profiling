@@ -5,7 +5,7 @@ import dataclasses
 import numpy as np
 import pytest
 
-from object_profiling.benchmark import (
+from object_profiling.evaluation.benchmark import (
     TARGET_MAE_M,
     TARGET_P95_M,
     TARGET_VALID_RATE,

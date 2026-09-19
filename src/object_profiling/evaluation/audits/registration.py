@@ -7,19 +7,19 @@ from pathlib import Path
 
 import numpy as np
 
-from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
-from .config import AppConfig
-from .environment import BoxSpec, ProfilingEnvironment
-from .evaluation import RegistrationMetrics, box_to_tool, evaluate_registration
-from .perception import ScanView, observation_to_scan_view
-from .registration import (
+from ...config import AppConfig
+from ...measure.perception import ScanView, observation_to_scan_view
+from ...measure.registration import (
     TOOL_FRAME_ID,
     fuse_scan_views,
     view_extent_disagreement_m,
     view_plane_residuals_m,
 )
-from .scanning import run_fixed_scan
-from .sensors import RGBDSensor
+from ...station.camera import RGBDSensor
+from ...station.environment import BoxSpec, ProfilingEnvironment
+from ...station.scanning import run_fixed_scan
+from ..checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
+from ..metrics import RegistrationMetrics, box_to_tool, evaluate_registration
 
 
 MAX_P95_SURFACE_DISTANCE_M = 0.003

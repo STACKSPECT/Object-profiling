@@ -3,12 +3,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from .background import BackgroundSet, capture_pose_backgrounds
-from .contracts import CameraObservation
+from ..contracts import CameraObservation
+from ..measure.background import BackgroundSet
+from .backgrounds import capture_pose_backgrounds
+from .camera import RGBDSensor
 from .controller import ScanPoseController
 from .environment import ProfilingEnvironment
 from .poses import RETURN_POSE, SCAN_POSES, ScanPose
-from .sensors import RGBDSensor
 
 
 @dataclass(frozen=True)

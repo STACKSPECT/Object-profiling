@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .config import MotionConfig
-from .contracts import ViewDescriptor
+from ..config import MotionConfig
+from ..contracts import ViewDescriptor
 
 
 @dataclass(frozen=True)

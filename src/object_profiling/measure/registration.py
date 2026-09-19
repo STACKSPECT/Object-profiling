@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .contracts import ViewDescriptor
+from ..contracts import ViewDescriptor
 from .perception import ScanView
 
 

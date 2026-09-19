@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 
 from object_profiling.config import AppConfig, EstimatorConfig
-from object_profiling.demo import HEADER_HEIGHT, TILE, compose_panels, run_demo
-from object_profiling.profiling_pipeline import profile_seed
+from object_profiling.presentation.demo import HEADER_HEIGHT, TILE, compose_panels, run_demo
+from object_profiling.station.pipeline import profile_seed
 
 SEED = 42
 PACKAGE = Path(__file__).resolve().parents[1] / "src" / "object_profiling"
@@ -27,7 +27,7 @@ def test_headless_demo_measures_and_renders_the_mosaic() -> None:
 def test_the_displayed_mask_can_only_be_the_observable_one() -> None:
     """La demo no tiene acceso al renderizador de mascaras ground truth."""
 
-    source = (PACKAGE / "demo.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "presentation" / "demo.py").read_text(encoding="utf-8")
 
     assert "GroundTruthRenderer" not in source
     assert "enable_segmentation_rendering" not in source
@@ -64,7 +64,7 @@ def test_the_mosaic_holds_one_tile_per_pose_of_the_fixed_sequence() -> None:
 def test_visual_and_headless_share_the_measurement_path() -> None:
     """La demo no puede tener su propia logica de medicion."""
 
-    source = (PACKAGE / "demo.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "presentation" / "demo.py").read_text(encoding="utf-8")
 
     assert source.count("profile(") >= 2
     assert "estimate_cuboid" not in source

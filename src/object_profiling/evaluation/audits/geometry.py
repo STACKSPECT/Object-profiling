@@ -8,14 +8,15 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
-from .config import AppConfig
-from .environment import BoxSpec, ProfilingEnvironment
-from .geometry import estimate_cuboid
-from .perception import observation_to_scan_view
-from .registration import FusedCloud, axis_aligned_extremes_m, fuse_scan_views
-from .scanning import run_fixed_scan
-from .sensors import RGBDSensor, lateral_pitch_m
+from ...config import AppConfig
+from ...measure.backproject import lateral_pitch_m
+from ...measure.geometry import estimate_cuboid
+from ...measure.perception import observation_to_scan_view
+from ...measure.registration import FusedCloud, axis_aligned_extremes_m, fuse_scan_views
+from ...station.camera import RGBDSensor
+from ...station.environment import BoxSpec, ProfilingEnvironment
+from ...station.scanning import run_fixed_scan
+from ..checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 
 
 def _dimensions(extent: np.ndarray) -> np.ndarray:

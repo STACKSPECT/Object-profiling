@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .config import AppConfig
-from .contracts import Dimensions3D, Extent3D, RejectionReason
+from ..config import AppConfig
+from ..contracts import Dimensions3D, Extent3D, RejectionReason
 from .registration import FusedCloud, axis_aligned_extremes_m, distance_to_box_surface_m
 
 

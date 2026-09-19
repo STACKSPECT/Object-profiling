@@ -5,8 +5,8 @@ import argparse
 import numpy as np
 import pytest
 
-from object_profiling.checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX, _positive_speed, run_checkpoint
-from object_profiling.environment import ProfilingEnvironment
+from object_profiling.evaluation.checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX, _positive_speed, run_checkpoint
+from object_profiling.station.environment import ProfilingEnvironment
 
 
 def test_box_starts_presented_but_not_attached() -> None:

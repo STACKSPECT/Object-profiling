@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from object_profiling.checkpoint import NOMINAL_BOX
-from object_profiling.depth_audit import audit_depth_accuracy
-from object_profiling.poses import SCAN_POSES
+from object_profiling.evaluation.checkpoint import NOMINAL_BOX
+from object_profiling.evaluation.audits.depth import audit_depth_accuracy
+from object_profiling.station.poses import SCAN_POSES
 
 
 def test_rendered_depth_matches_analytic_rays_on_the_box_interior() -> None:

@@ -7,11 +7,11 @@ import mujoco
 import numpy as np
 import pytest
 
-from object_profiling.checkpoint import MAXIMUM_BOX, MINIMUM_BOX
+from object_profiling.evaluation.checkpoint import MAXIMUM_BOX, MINIMUM_BOX
 from object_profiling.config import AppConfig, EstimatorConfig
-from object_profiling.environment import ProfilingEnvironment
-from object_profiling.panels import HEADER_HEIGHT
-from object_profiling.showcase import (
+from object_profiling.station.environment import ProfilingEnvironment
+from object_profiling.presentation.panels import HEADER_HEIGHT
+from object_profiling.presentation.showcase import (
     CASE_TILE,
     SHEET_WIDTH,
     ShowcaseCase,
@@ -136,7 +136,7 @@ def test_a_rejected_case_still_appears_on_the_sheet() -> None:
 
 
 def test_visual_and_headless_share_the_measurement_path() -> None:
-    source = (PACKAGE / "showcase.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "presentation" / "showcase.py").read_text(encoding="utf-8")
 
     # Una sola llamada a measure_case, usada por ambos modos.
     assert source.count("measure_case(case, environment") == 1
@@ -148,6 +148,6 @@ def test_visual_and_headless_share_the_measurement_path() -> None:
 def test_the_showcase_reuses_one_viewer() -> None:
     """MuJoCo solo admite un visor por proceso: abrir el segundo falla."""
 
-    source = (PACKAGE / "showcase.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "presentation" / "showcase.py").read_text(encoding="utf-8")
 
     assert source.count("launch_passive") == 1

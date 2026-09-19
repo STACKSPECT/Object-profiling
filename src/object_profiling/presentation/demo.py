@@ -7,9 +7,10 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .config import AppConfig
-from .contracts import ObjectDimensions
-from .environment import ProfilingEnvironment
+from ..config import AppConfig
+from ..contracts import ObjectDimensions
+from ..station.environment import ProfilingEnvironment
+from ..station.pipeline import ProfilingResult, profile
 from .panels import (
     ACCENT,
     EVALUATION_INK,
@@ -23,7 +24,6 @@ from .panels import (
     text_panel,
     tile,
 )
-from .profiling_pipeline import ProfilingResult, profile
 
 
 def _format_mm(values_m: np.ndarray) -> str:

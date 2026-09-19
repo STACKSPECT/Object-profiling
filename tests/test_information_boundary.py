@@ -28,6 +28,7 @@ SOLUTION_MODULES = (
 EVALUATION_MODULES = (
     "camera_audit.py",
     "checkpoint.py",
+    "demo.py",
     "depth_audit.py",
     "evaluation.py",
     "geometry_audit.py",

@@ -20,6 +20,7 @@ dev = ["pytest>=8,<10"]
 [project.scripts]
 object-profiling-checkpoint = "object_profiling.checkpoint:main"
 object-profiling-profile = "object_profiling.profiling_pipeline:main"
+object-profiling-demo = "object_profiling.demo:main"
 object-profiling-camera-audit = "object_profiling.camera_audit:main"
 object-profiling-depth-audit = "object_profiling.depth_audit:main"
 object-profiling-segmentation-audit = "object_profiling.segmentation_audit:main"

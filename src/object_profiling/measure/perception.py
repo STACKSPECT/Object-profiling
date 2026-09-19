@@ -5,9 +5,9 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from .config import AppConfig, SensorConfig
-from .contracts import CameraObservation, RejectionReason
-from .sensors import backproject_depth
+from ..config import AppConfig, SensorConfig
+from ..contracts import CameraObservation, RejectionReason
+from .backproject import backproject_depth
 
 
 @dataclass(frozen=True)

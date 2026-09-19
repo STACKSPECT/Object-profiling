@@ -9,10 +9,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX
-from .config import AppConfig
-from .contracts import ObjectDimensions
-from .environment import BoxSpec, ProfilingEnvironment, generate_box_spec
+from ..config import AppConfig
+from ..contracts import ObjectDimensions
+from ..evaluation.checkpoint import MAXIMUM_BOX, MINIMUM_BOX
+from ..station.environment import BoxSpec, ProfilingEnvironment, generate_box_spec
+from ..station.pipeline import ProfilingResult, profile
 from .panels import (
     ACCENT,
     BORDER,
@@ -26,7 +27,6 @@ from .panels import (
     text_panel,
     tile,
 )
-from .profiling_pipeline import ProfilingResult, profile
 
 CASE_TILE = (260, 195)
 TEXT_WIDTH = 440

@@ -1,6 +1,6 @@
 """Orquestador del ciclo en MuJoCo.
 
-Es el adaptador entre la escena de este repositorio y `measurement.measure()`.
+Es el adaptador entre la escena de este repositorio y `measure.measure()`.
 Todo lo que depende de MuJoCo vive aqui; la medicion en si no depende de nada de
 esto.
 """
@@ -14,21 +14,21 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from .background import BackgroundSet
-from .config import AppConfig
-from .contracts import ObjectDimensions, RejectionReason
-from .controller import MotionError
-from .environment import ProfilingEnvironment
-from .measurement import (
+from ..config import AppConfig
+from ..contracts import ObjectDimensions, RejectionReason
+from ..measure.background import BackgroundSet
+from ..measure.measurement import (
     DEFAULT_BOOTSTRAP_SEED,
     MeasurementResult,
     measure,
     rejected_measurement,
 )
-from .perception import ScanView
-from .registration import FusedCloud
+from ..measure.perception import ScanView
+from ..measure.registration import FusedCloud
+from .camera import RGBDSensor, RenderError
+from .controller import MotionError
+from .environment import ProfilingEnvironment
 from .scanning import run_fixed_scan
-from .sensors import RGBDSensor, RenderError
 
 
 @dataclass(frozen=True)

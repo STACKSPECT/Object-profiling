@@ -7,15 +7,15 @@ import pytest
 
 from object_profiling.config import AppConfig, EstimatorConfig
 from object_profiling.contracts import Dimensions3D, RejectionReason
-from object_profiling.perception import ScanView
-from object_profiling.geometry import (
+from object_profiling.measure.perception import ScanView
+from object_profiling.measure.geometry import (
     FaceCoverage,
     combine_uncertainty_m,
     estimate_cuboid,
     face_coverage,
 )
-from object_profiling.geometry_audit import METHODS, audit_geometry_suite
-from object_profiling.registration import fuse_scan_views
+from object_profiling.evaluation.audits.geometry import METHODS, audit_geometry_suite
+from object_profiling.measure.registration import fuse_scan_views
 
 CONFIG = AppConfig()
 TOP_Z_M = CONFIG.sensor.tool_to_box_offset_m

@@ -7,12 +7,12 @@ import pytest
 
 from object_profiling.config import AppConfig, EstimatorConfig, SensorConfig
 from object_profiling.contracts import OBJECT_DIMENSIONS_SCHEMA_VERSION, RejectionReason
-from object_profiling.environment import ProfilingEnvironment, generate_box_spec
-from object_profiling.poses import SCAN_POSES
-from object_profiling.profiling_pipeline import profile, profile_seed
-from object_profiling.registration import TOOL_FRAME_ID
-from object_profiling.scanning import run_fixed_scan
-from object_profiling.sensors import RGBDSensor
+from object_profiling.station.environment import ProfilingEnvironment, generate_box_spec
+from object_profiling.station.poses import SCAN_POSES
+from object_profiling.station.pipeline import profile, profile_seed
+from object_profiling.measure.registration import TOOL_FRAME_ID
+from object_profiling.station.scanning import run_fixed_scan
+from object_profiling.station.camera import RGBDSensor
 
 SEED = 42
 

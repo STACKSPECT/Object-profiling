@@ -9,11 +9,11 @@ from pathlib import Path
 
 import numpy as np
 
-from .config import AppConfig
-from .contracts import Extent3D
-from .environment import ProfilingEnvironment
-from .evaluation import EvaluationRecord, box_to_tool, evaluate_registration
-from .profiling_pipeline import profile
+from ..config import AppConfig
+from ..contracts import Extent3D
+from ..station.environment import ProfilingEnvironment
+from ..station.pipeline import profile
+from .metrics import EvaluationRecord, box_to_tool, evaluate_registration
 
 # Criterios originales del plan. Se reportan tal cual, se cumplan o no.
 TARGET_VALID_RATE = 0.98

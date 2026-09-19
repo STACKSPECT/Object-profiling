@@ -3,20 +3,20 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from object_profiling.checkpoint import NOMINAL_BOX
+from object_profiling.evaluation.checkpoint import NOMINAL_BOX
 from object_profiling.config import AppConfig
 from object_profiling.contracts import RejectionReason
-from object_profiling.environment import ProfilingEnvironment
-from object_profiling.evaluation import GroundTruthRenderer, evaluate_segmentation
-from object_profiling.perception import (
+from object_profiling.station.environment import ProfilingEnvironment
+from object_profiling.evaluation.metrics import GroundTruthRenderer, evaluate_segmentation
+from object_profiling.measure.perception import (
     observation_to_scan_view,
     points_in_tool_frame,
     segment_foreground,
     tool_volume_bounds_m,
 )
-from object_profiling.scanning import run_fixed_scan
-from object_profiling.segmentation_audit import audit_segmentation_suite
-from object_profiling.sensors import RGBDSensor
+from object_profiling.station.scanning import run_fixed_scan
+from object_profiling.evaluation.audits.segmentation import audit_segmentation_suite
+from object_profiling.station.camera import RGBDSensor
 
 CONFIG = AppConfig()
 FAR_BACKGROUND_M = 2.0

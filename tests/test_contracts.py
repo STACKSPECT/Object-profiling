@@ -13,8 +13,8 @@ from object_profiling.contracts import (
     ViewDescriptor,
     snap_to_catalogue,
 )
-from object_profiling.environment import generate_box_spec
-from object_profiling.poses import RETURN_POSE, SCAN_POSES, pose_by_name
+from object_profiling.station.environment import generate_box_spec
+from object_profiling.station.poses import RETURN_POSE, SCAN_POSES, pose_by_name
 
 
 def test_fixed_scan_sequence_is_three_poses() -> None:

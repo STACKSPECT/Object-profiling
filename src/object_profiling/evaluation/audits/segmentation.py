@@ -8,13 +8,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
-from .config import AppConfig
-from .environment import BoxSpec, ProfilingEnvironment
-from .evaluation import GroundTruthRenderer, SegmentationMetrics, evaluate_segmentation
-from .perception import segment_foreground
-from .scanning import run_fixed_scan
-from .sensors import RGBDSensor
+from ...config import AppConfig
+from ...measure.perception import segment_foreground
+from ...station.camera import RGBDSensor
+from ...station.environment import BoxSpec, ProfilingEnvironment
+from ...station.scanning import run_fixed_scan
+from ..checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
+from ..metrics import GroundTruthRenderer, SegmentationMetrics, evaluate_segmentation
 
 
 MIN_INTERSECTION_OVER_UNION = 0.95

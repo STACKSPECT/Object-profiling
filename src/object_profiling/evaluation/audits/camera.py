@@ -9,11 +9,11 @@ import cv2
 import mujoco
 import numpy as np
 
-from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
-from .controller import ScanPoseController
-from .environment import BoxSpec, ProfilingEnvironment
-from .poses import SCAN_POSES, RETURN_POSE
-from .sensors import RGBDSensor
+from ...station.camera import RGBDSensor
+from ...station.controller import ScanPoseController
+from ...station.environment import BoxSpec, ProfilingEnvironment
+from ...station.poses import SCAN_POSES, RETURN_POSE
+from ..checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 
 
 MIN_VISIBLE_PIXELS = 4_000

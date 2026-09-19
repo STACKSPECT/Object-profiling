@@ -6,8 +6,8 @@ from typing import Any
 import mujoco
 import numpy as np
 
-from .contracts import Dimensions3D, Extent3D, ObjectDimensions
-from .environment import ProfilingEnvironment
+from ..contracts import Dimensions3D, Extent3D, ObjectDimensions
+from ..station.environment import ProfilingEnvironment
 
 
 @dataclass(frozen=True)

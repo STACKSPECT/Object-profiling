@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from object_profiling.perception import ScanView
-from object_profiling.registration import (
+from object_profiling.measure.perception import ScanView
+from object_profiling.measure.registration import (
     TOOL_FRAME_ID,
     axis_aligned_extremes_m,
     distance_to_box_surface_m,
@@ -12,8 +12,8 @@ from object_profiling.registration import (
     view_extent_disagreement_m,
     view_plane_residuals_m,
 )
-from object_profiling.registration_audit import audit_registration_suite
-from object_profiling.sensors import backproject_depth
+from object_profiling.evaluation.audits.registration import audit_registration_suite
+from object_profiling.measure.backproject import backproject_depth
 from object_profiling.contracts import CameraIntrinsics, CameraObservation
 
 

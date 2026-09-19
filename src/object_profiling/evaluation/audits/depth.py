@@ -9,12 +9,12 @@ import cv2
 import mujoco
 import numpy as np
 
-from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
-from .contracts import CameraObservation
-from .controller import ScanPoseController
-from .environment import BoxSpec, ProfilingEnvironment
-from .poses import SCAN_POSES
-from .sensors import RGBDSensor
+from ...contracts import CameraObservation
+from ...station.camera import RGBDSensor
+from ...station.controller import ScanPoseController
+from ...station.environment import BoxSpec, ProfilingEnvironment
+from ...station.poses import SCAN_POSES
+from ..checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 
 
 PIXEL_STRIDE = 4

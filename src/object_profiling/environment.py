@@ -72,6 +72,25 @@ class ProfilingEnvironment:
     box_visible: bool = True
 
     @classmethod
+    def for_seed(
+        cls,
+        seed: int,
+        config: AppConfig | None = None,
+        *,
+        attach_box: bool = True,
+    ) -> "ProfilingEnvironment":
+        """Construye el episodio de una seed. Es preparacion, no medicion."""
+
+        config = config or AppConfig()
+        return cls.create(generate_box_spec(seed, config), config, attach_box=attach_box)
+
+    @property
+    def object_id(self) -> str:
+        """Etiqueta del objeto del episodio, sin revelar su geometria."""
+
+        return self.box_spec.object_id
+
+    @classmethod
     def create(
         cls,
         box_spec: BoxSpec,

@@ -15,6 +15,7 @@ SOLUTION_MODULES = (
     "contracts.py",
     "controller.py",
     "geometry.py",
+    "panels.py",
     "perception.py",
     "poses.py",
     "profiling_pipeline.py",
@@ -35,6 +36,7 @@ EVALUATION_MODULES = (
     "geometry_audit.py",
     "registration_audit.py",
     "segmentation_audit.py",
+    "showcase.py",
 )
 
 PRIVILEGED_TOKENS = (

@@ -86,17 +86,27 @@ source .venv/bin/activate
 object-profiling-profile --seed 42 --output results/profile-seed-42.json
 ```
 
-Demo con mosaico de RGB, profundidad, máscara observable, nube fusionada y
-resultado. El ground truth aparece solo en el panel de evaluación:
+Demo de una caja, con mosaico de RGB, profundidad, máscara observable, nube
+fusionada y resultado. El ground truth aparece solo en el panel de evaluación:
 
 ```bash
 object-profiling-demo --headless --seed 42
 ```
 
-En macOS la demo con visor de MuJoCo necesita `mjpython`:
+Demo de varias cajas, con una fila por caja comparando medido frente a real y un
+panel agregado. Recorre seis cajas de contraste: mínima y máxima del rango, una
+muy alargada, una prácticamente cúbica y dos aleatorias:
+
+```bash
+object-profiling-showcase --headless --report results/showcase.json
+```
+
+En macOS las dos con visor de MuJoCo necesitan `mjpython`. El showcase mide las
+seis cajas seguidas en un único visor, porque MuJoCo solo admite uno por proceso:
 
 ```bash
 mjpython -m object_profiling.demo --visual --seed 42 --speed 1.0
+mjpython -m object_profiling.showcase --visual --speed 1.0
 ```
 
 `--speed` controla únicamente la reproducción del visor. No modifica el timestep,

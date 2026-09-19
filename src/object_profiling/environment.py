@@ -111,6 +111,17 @@ class ProfilingEnvironment:
         environment.reset(attach_box=attach_box)
         return environment
 
+    def load_box(self, box_spec: BoxSpec, *, attach_box: bool = False) -> None:
+        """Reapunta el episodio a otra caja sin recargar el modelo.
+
+        Las dimensiones de la caja viven en campos del modelo, asi que el mismo
+        par modelo/datos sirve para varias cajas. Permite medir varias seguidas
+        con un unico visor abierto, que es lo que MuJoCo admite por proceso.
+        """
+
+        self.box_spec = box_spec
+        self.reset(attach_box=attach_box)
+
     def reset(self, *, attach_box: bool = True) -> None:
         mujoco.mj_resetData(self.model, self.data)
         self.data.qpos[:6] = np.asarray(self.config.motion.home_qpos)

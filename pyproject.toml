@@ -27,6 +27,7 @@ object-profiling-segmentation-audit = "object_profiling.evaluation.audits.segmen
 object-profiling-registration-audit = "object_profiling.evaluation.audits.registration:main"
 object-profiling-geometry-audit = "object_profiling.evaluation.audits.geometry:main"
 object-profiling-benchmark = "object_profiling.evaluation.benchmark:main"
+object-profiling-pose-ablation = "object_profiling.evaluation.pose_ablation:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

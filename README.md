@@ -20,7 +20,6 @@ CALIBRATE_BACKGROUND
 -> ATTACH_SUCTION
 -> SCAN_YAW_0
 -> SCAN_YAW_90
--> SCAN_TILT_35
 -> RETURNED_VERTICAL
 -> ESTIMATE
 -> VALIDATE
@@ -28,20 +27,22 @@ CALIBRATE_BACKGROUND
 ```
 
 La trayectoria es fija: no elige vistas según el resultado. Todas las cajas
-recorren las mismas tres poses.
+recorren las mismas dos poses (`SCAN_YAW_0` y `SCAN_YAW_90`; EXP-008).
 
-Medido sobre 300 escenas de dimensiones aleatorias (seeds 1000–1099 y
-5000–5199), en el entorno ideal y sin ruido:
+Medido sobre 300 escenas (seeds 1000–1099 y 5000–5199), ciclo de dos yaws,
+entorno ideal y sin ruido:
 
 | Eje | MAE | p95 | Máximo |
 |---|---:|---:|---:|
-| longitud | 0,024 mm | 0,035 mm | 0,037 mm |
-| anchura | 0,179 mm | 0,304 mm | 0,371 mm |
-| altura | 0,979 mm | 1,796 mm | 2,003 mm |
+| longitud | 0,016 mm | 0,021 mm | 0,023 mm |
+| anchura | 0,242 mm | 0,380 mm | 0,500 mm |
+| altura | 1,066 mm | 1,795 mm | 1,901 mm |
 
-300 de 300 perfiles válidos, reproducibles por seed, con latencia de percepción
-p50 de 29 ms y ciclo p50 de 0,28 s. Detalle y límites en
-[EXP-007](docs/findings/EXP-007-benchmark-dimensiones-variables.md).
+300 de 300 perfiles válidos, snap a 5 mm en las 300, reproducibles por seed,
+latencia de percepción p50 de 25 ms y ciclo p50 de 0,23 s. Comparación con el
+ciclo de tres poses en
+[EXP-007](docs/findings/EXP-007-benchmark-dimensiones-variables.md) y
+[EXP-008](docs/findings/EXP-008-ablacion-poses-escaneo.md).
 
 La succión se abstrae mediante un `equality weld` rígido declarado de MuJoCo. Eso
 **no** valida sellado, fugas, cartón poroso, deformación ni deslizamiento.
@@ -98,11 +99,12 @@ object-profiling-demo --headless --seed 42
 ```
 
 Demo de varias cajas, con una fila por caja comparando medido frente a real y un
-panel agregado. Recorre seis cajas de contraste: mínima y máxima del rango, una
-muy alargada, una prácticamente cúbica y dos aleatorias:
+panel agregado. Recorre seis cajas aleatorias del rango, en múltiplos de 5 mm.
+Sin `--seed` elige una seed base al azar y la imprime para poder reproducir:
 
 ```bash
 object-profiling-showcase --headless --report results/showcase.json
+object-profiling-showcase --headless --seed 42 --report results/showcase.json
 ```
 
 En macOS las dos con visor de MuJoCo necesitan `mjpython`. El showcase mide las
@@ -173,3 +175,4 @@ python -m pytest -p no:cacheprovider
 - [EXP-005: registro multivista](docs/findings/EXP-005-registro-multivista.md)
 - [EXP-006: estimación del cuboide](docs/findings/EXP-006-estimacion-cuboide.md)
 - [EXP-007: benchmark de dimensiones variables](docs/findings/EXP-007-benchmark-dimensiones-variables.md)
+- [EXP-008: ablación de poses de escaneo](docs/findings/EXP-008-ablacion-poses-escaneo.md)

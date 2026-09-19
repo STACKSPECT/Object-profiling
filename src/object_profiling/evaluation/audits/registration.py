@@ -17,6 +17,7 @@ from ...measure.registration import (
 )
 from ...station.camera import RGBDSensor
 from ...station.environment import BoxSpec, ProfilingEnvironment
+from ...station.poses import SCAN_POSES
 from ...station.scanning import run_fixed_scan
 from ..checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 from ..metrics import RegistrationMetrics, box_to_tool, evaluate_registration
@@ -91,7 +92,7 @@ def audit_box_registration(
         view_extent_disagreement_m=tuple(float(value) for value in disagreement),
         valid=bool(
             not rejections
-            and cloud.view_count == 3
+            and cloud.view_count == len(SCAN_POSES)
             and fused.p95_surface_distance_m <= MAX_P95_SURFACE_DISTANCE_M
             and float(np.max(residuals)) <= MAX_VIEW_PLANE_RESIDUAL_M
         ),

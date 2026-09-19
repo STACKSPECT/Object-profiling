@@ -48,7 +48,7 @@ def test_every_pose_of_the_fixed_sequence_is_used(nominal_profile) -> None:
         pose.name for pose in SCAN_POSES
     ]
     assert nominal_profile.rejected_views == ()
-    assert len(nominal_profile.views) == 3
+    assert len(nominal_profile.views) == 2
 
 
 def test_the_profile_is_close_to_the_ground_truth(nominal_profile) -> None:
@@ -69,10 +69,10 @@ def test_the_serialised_contract_is_json_ready(nominal_profile) -> None:
 
     assert payload["frame_id"] == TOOL_FRAME_ID
     assert payload["rejection_reason"] is None
-    assert payload["views_used"][2] == {
-        "pose_name": "SCAN_TILT_35",
-        "yaw_deg": 0,
-        "tilt_deg": 35,
+    assert payload["views_used"][1] == {
+        "pose_name": "SCAN_YAW_90",
+        "yaw_deg": 90,
+        "tilt_deg": 0,
     }
     assert set(payload) == {
         "schema_version",
@@ -157,7 +157,7 @@ def test_out_of_range_dimensions_are_rejected() -> None:
 
 
 def test_the_measurement_cycle_never_hides_the_box_between_captures() -> None:
-    """Los fondos se toman en una pasada previa, no retirando la caja tres veces.
+    """Los fondos se toman en una pasada previa, no retirando la caja entre poses.
 
     Si el ciclo ocultase la caja entre capturas reconstruiria el weld de succion
     a mitad de ciclo y la deriva auditada en EXP-001 dejaria de ser comparable.
@@ -184,5 +184,5 @@ def test_the_measurement_cycle_never_hides_the_box_between_captures() -> None:
 
     hides_before_first_capture = calls.index(("capture", True))
     assert all(name == "set_box_visible" for name, _ in calls[:hides_before_first_capture])
-    assert [value for name, value in calls if name == "capture"] == [True, True, True]
+    assert [value for name, value in calls if name == "capture"] == [True, True]
     assert environment.box_attached

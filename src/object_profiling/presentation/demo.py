@@ -99,6 +99,11 @@ def compose_panels(result: ProfilingResult, truth_m: np.ndarray, state: str) -> 
         tile(view.mask.astype(np.uint8) * 255, f"Mascara observable {view.pose_name}")
         for view in result.views
     ]
+    blank = tile(np.zeros((TILE[1], TILE[0], 3), dtype=np.uint8), "")
+    while len(rgb_row) < 3:
+        rgb_row.append(blank)
+        depth_row.append(blank)
+        mask_row.append(blank)
 
     points = result.cloud.points_m if result.cloud is not None else np.empty((0, 3))
     lower = result.estimate.lower_m if result.estimate is not None else None

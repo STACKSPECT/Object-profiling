@@ -26,6 +26,7 @@ SOLUTION_MODULES = (
 # `environment.py` construye la escena y por tanto conoce la caja: es quien la
 # crea. Los modulos de auditoria miden contra la verdad por definicion.
 EVALUATION_MODULES = (
+    "benchmark.py",
     "camera_audit.py",
     "checkpoint.py",
     "demo.py",

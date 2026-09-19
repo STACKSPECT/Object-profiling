@@ -26,6 +26,7 @@ object-profiling-depth-audit = "object_profiling.depth_audit:main"
 object-profiling-segmentation-audit = "object_profiling.segmentation_audit:main"
 object-profiling-registration-audit = "object_profiling.registration_audit:main"
 object-profiling-geometry-audit = "object_profiling.geometry_audit:main"
+object-profiling-benchmark = "object_profiling.benchmark:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

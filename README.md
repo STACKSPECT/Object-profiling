@@ -10,64 +10,124 @@ consumibles por el resto del sistema. Este repositorio sí incluye el agarre y
 los movimientos del UR10e necesarios para medir; no incluye el cálculo del
 centro de masas, la reconstrucción del palé ni la planificación de colocación.
 
-## Estado actual: movimiento fijo y cámara RGB-D
+## Estado actual: medición completa con trayectoria fija
 
-La implementación se detiene deliberadamente en este flujo:
+El ciclo mide las tres dimensiones de extremo a extremo:
 
 ```text
-ATTACH_SUCTION
--> LIFT / SCAN_YAW_0
+CALIBRATE_BACKGROUND
+-> PRESENT_BOX
+-> ATTACH_SUCTION
+-> SCAN_YAW_0
 -> SCAN_YAW_90
 -> SCAN_TILT_35
--> RETURN_VERTICAL
+-> RETURNED_VERTICAL
+-> ESTIMATE
+-> VALIDATE
+-> PROFILE_READY / rechazo con motivo
 ```
 
-La demo usa una caja de 0,30 × 0,20 × 0,15 m y 2 kg, presentada bajo las cinco
-copas. La misma trayectoria se verifica automáticamente con las cajas mínima,
-nominal y máxima del rango. La succión se abstrae mediante un `equality weld`
-rígido de MuJoCo. La cámara ya captura RGB y profundidad en las tres poses, pero
-todavía no se calculan las medidas.
+La trayectoria es fija: no elige vistas según el resultado. Todas las cajas
+recorren las mismas tres poses.
 
-La cámara fija `scan_rgbd_cam` usa una vista diagonal baja para reducir la
-oclusión del terminal y observar dos caras laterales. Su auditoría usa el ID de
-la caja del simulador exclusivamente para medir cobertura; ese ID no se entrega
-al futuro estimador.
+Medido sobre 300 escenas de dimensiones aleatorias (seeds 1000–1099 y
+5000–5199), en el entorno ideal y sin ruido:
 
-El modo headless valida que la caja se eleve al menos 0,10 m, que el robot
-alcance todas las poses, vuelva a vertical y que la transformación relativa terminal-caja no derive
-más de 1 mm ni 0,5°:
+| Eje | MAE | p95 | Máximo |
+|---|---:|---:|---:|
+| longitud | 0,024 mm | 0,035 mm | 0,037 mm |
+| anchura | 0,179 mm | 0,304 mm | 0,371 mm |
+| altura | 0,979 mm | 1,796 mm | 2,003 mm |
+
+300 de 300 perfiles válidos, reproducibles por seed, con latencia de percepción
+p50 de 29 ms y ciclo p50 de 0,28 s. Detalle y límites en
+[EXP-007](docs/findings/EXP-007-benchmark-dimensiones-variables.md).
+
+La succión se abstrae mediante un `equality weld` rígido declarado de MuJoCo. Eso
+**no** valida sellado, fugas, cartón poroso, deformación ni deslizamiento.
+
+### Contrato de salida
+
+`ObjectDimensions`, versión de esquema 2, en el marco `ur10e_attachment_site`:
+
+```json
+{
+  "schema_version": 2,
+  "object_id": "box-0042",
+  "timestamp_s": 3.588,
+  "frame_id": "ur10e_attachment_site",
+  "dimensions_m": {"length": 0.3435, "width": 0.1988, "height": 0.2273},
+  "uncertainty_m": {"length": 0.0023, "width": 0.0023, "height": 0.0023},
+  "views_used": [{"pose_name": "SCAN_YAW_0", "yaw_deg": 0, "tilt_deg": 0}],
+  "confidence": 0.92,
+  "valid": true,
+  "rejection_reason": null
+}
+```
+
+Convenciones: distancias en metros, ángulos articulares en radianes, nombres de
+pose en grados, `length >= width` y la altura sobre el eje Z del terminal.
+
+Motivos de rechazo: `INSUFFICIENT_FOREGROUND`, `FRAME_BORDER_CONTACT`,
+`INSUFFICIENT_VIEWS`, `REGISTRATION_INCONSISTENT`, `OUT_OF_RANGE`,
+`HIGH_UNCERTAINTY`, `MOTION_TIMEOUT`, `RENDER_FAILURE`, `MISSING_BACKGROUND` e
+`INSUFFICIENT_FACE_COVERAGE`.
+
+El estimador no puede consumir la pose ni las dimensiones internas de MuJoCo. Una
+prueba estática comprueba que los módulos de solución no nombran ninguna de esas
+entradas ni importan módulos de evaluación.
+
+## Ejecución
+
+Medir una seed y emitir el contrato:
 
 ```bash
 source .venv/bin/activate
+object-profiling-profile --seed 42 --output results/profile-seed-42.json
+```
+
+Demo con mosaico de RGB, profundidad, máscara observable, nube fusionada y
+resultado. El ground truth aparece solo en el panel de evaluación:
+
+```bash
+object-profiling-demo --headless --seed 42
+```
+
+En macOS la demo con visor de MuJoCo necesita `mjpython`:
+
+```bash
+mjpython -m object_profiling.demo --visual --seed 42 --speed 1.0
+```
+
+`--speed` controla únicamente la reproducción del visor. No modifica el timestep,
+la trayectoria simulada ni las métricas físicas.
+
+Benchmark sobre un rango de seeds:
+
+```bash
+object-profiling-benchmark --start 1000 --count 100 \
+  --output results/benchmark-1000-1099.json
+```
+
+### Checkpoint de movimiento y auditorías
+
+Cada etapa tiene su comando reproducible. Todos necesitan acceso gráfico, aunque
+no abran ventana, porque MuJoCo crea un contexto OpenGL para renderizar.
+
+```bash
 object-profiling-checkpoint --headless --seed 42 --output results/checkpoint-seed-42.json
+object-profiling-camera-audit --artifacts artifacts/camera-audit --output results/camera-audit.json
+object-profiling-depth-audit --output results/depth-audit.json
+object-profiling-segmentation-audit --artifacts artifacts/segmentation-audit --output results/segmentation-audit.json
+object-profiling-registration-audit --artifacts artifacts/registration-audit --output results/registration-audit.json
+object-profiling-geometry-audit --output results/geometry-audit.json
 ```
 
-En macOS, la demo visual debe lanzarse mediante `mjpython`:
+## Fuera de este incremento
 
-```bash
-source .venv/bin/activate
-mjpython -m object_profiling.checkpoint --visual --seed 42 --speed 1.0
-```
-
-`--speed` controla únicamente la reproducción del visor: `2.0` muestra la
-secuencia al doble de velocidad y `0.5` a la mitad. No modifica el timestep, la
-trayectoria simulada ni las métricas físicas.
-
-Auditar el encuadre de las cajas mínima, nominal y máxima y guardar las nueve
-capturas:
-
-```bash
-object-profiling-camera-audit \
-  --artifacts artifacts/camera-audit \
-  --output results/camera-audit.json
-```
-
-Este comando necesita acceso gráfico aunque no abra una ventana, porque MuJoCo
-crea un contexto OpenGL para renderizar.
-
-La ventana muestra el mismo flujo que usa el test headless. En la terminal se
-imprimen los cambios de estado y, al terminar, el informe JSON. Un resultado
-correcto termina con `"success": true` y código de salida 0.
+La recogida desde la cinta no está implementada. La cinta y `infeed_rgbd_cam`
+están presentes en la escena para esa evolución. Tampoco se cubren el centro de
+masas, la reconstrucción del palé ni la planificación de colocación.
 
 ## Puesta en marcha
 
@@ -85,7 +145,7 @@ python -m pip install --upgrade pip
 python -m pip install -e '.[dev]'
 ```
 
-Ejecutar las pruebas del checkpoint:
+Ejecutar las pruebas:
 
 ```bash
 python -m pytest -p no:cacheprovider
@@ -100,3 +160,8 @@ python -m pytest -p no:cacheprovider
 - [EXP-000: agarre, elevación y rotación](docs/findings/EXP-000-agarre-elevacion-rotacion.md)
 - [EXP-001: trayectoria fija con inclinación](docs/findings/EXP-001-trayectoria-fija-inclinacion-35.md)
 - [EXP-002: cámara RGB-D fija y cobertura](docs/findings/EXP-002-camara-rgbd-cobertura.md)
+- [EXP-003: fondo por pose y veracidad de la profundidad](docs/findings/EXP-003-fondo-por-pose-y-profundidad.md)
+- [EXP-004: segmentación observable](docs/findings/EXP-004-segmentacion-observable.md)
+- [EXP-005: registro multivista](docs/findings/EXP-005-registro-multivista.md)
+- [EXP-006: estimación del cuboide](docs/findings/EXP-006-estimacion-cuboide.md)
+- [EXP-007: benchmark de dimensiones variables](docs/findings/EXP-007-benchmark-dimensiones-variables.md)

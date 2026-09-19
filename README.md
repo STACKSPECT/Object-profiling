@@ -141,13 +141,7 @@ masas, la reconstrucción del palé ni la planificación de colocación.
 
 ## Puesta en marcha
 
-En macOS, Open3D necesita `libusb` como dependencia nativa:
-
-```bash
-brew install libusb
-```
-
-Después, activar el entorno local e instalar las dependencias de Python:
+Activar el entorno local e instalar las dependencias de Python:
 
 ```bash
 source .venv/bin/activate

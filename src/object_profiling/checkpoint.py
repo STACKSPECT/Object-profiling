@@ -12,9 +12,9 @@ import mujoco
 import numpy as np
 
 from .config import AppConfig
-from .contracts import BoxSpec, Dimensions3D
+from .contracts import Dimensions3D
 from .controller import MotionError, ScanPoseController
-from .environment import ProfilingEnvironment
+from .environment import BoxSpec, ProfilingEnvironment
 from .poses import RETURN_POSE, SCAN_POSES
 
 

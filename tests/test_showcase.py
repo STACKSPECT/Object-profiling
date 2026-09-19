@@ -20,6 +20,7 @@ from object_profiling.showcase import (
     measure_case,
     run_showcase,
     summary,
+    _table_row,
 )
 
 PACKAGE = Path(__file__).resolve().parents[1] / "src" / "object_profiling"
@@ -34,7 +35,7 @@ def test_the_contrast_cases_really_cover_contrasting_shapes() -> None:
     assert shapes["minima del rango"] == MINIMUM_BOX.dimensions_m
     assert shapes["maxima del rango"] == MAXIMUM_BOX.dimensions_m
 
-    elongated = shapes["alargada  L/W 2.97"]
+    elongated = shapes["alargada  L/W 3.00"]
     assert elongated.length / elongated.width > 2.6
 
     cubic = shapes["casi cubica  L/W 1.00"]
@@ -90,6 +91,10 @@ def test_each_case_reports_measured_against_real(showcase) -> None:
         assert outcome.error_mm == pytest.approx(expected)
         uncertainty = outcome.dimensions.uncertainty_m.as_array() * 1000.0
         assert np.all(np.abs(outcome.error_mm) <= uncertainty)
+        row = _table_row(outcome)
+        assert "medido_inicial" in row
+        assert "medido" in row
+        assert "real" in row
 
 
 def test_the_sheet_has_one_row_per_case_plus_header_and_summary(showcase) -> None:
@@ -113,7 +118,7 @@ def test_the_summary_aggregates_the_error(showcase) -> None:
         assert report["mae_mm"][axis] == pytest.approx(float(np.mean(errors[:, index])))
     assert report["worst_absolute_error_mm"] == pytest.approx(float(np.max(errors)))
     assert len(report["results"]) == 6
-    assert report["results"][0]["prediction"]["schema_version"] == 2
+    assert report["results"][0]["prediction"]["schema_version"] == 3
 
 
 def test_a_rejected_case_still_appears_on_the_sheet() -> None:

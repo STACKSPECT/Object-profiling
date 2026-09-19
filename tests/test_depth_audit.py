@@ -26,8 +26,9 @@ def test_rendered_depth_matches_analytic_rays_on_the_box_interior() -> None:
 def test_silhouette_pixels_are_the_real_depth_hazard() -> None:
     """Un solo pixel de silueta puede errar centimetros.
 
-    Justifica erosionar la mascara antes de estimar dimensiones, en lugar de
-    confiar en percentiles sobre todos los puntos visibles.
+    Justifica separar interior y borde en la auditoria de profundidad. No
+    justifica erosionar la mascara del estimador: EXP-006 midio que esos
+    pixeles son los que marcan los extremos no observados de frente.
     """
 
     records = audit_depth_accuracy(NOMINAL_BOX)

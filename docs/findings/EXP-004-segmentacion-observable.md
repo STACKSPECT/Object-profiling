@@ -49,9 +49,11 @@ Dos decisiones cambian respecto al prototipo heredado:
    depende de que la caja caiga siempre en el mismo punto del mundo. Ahora el
    volumen se deriva del rango de cajas declarado: el mismo límite horizontal
    para los dos ejes, de modo que no se presupone cuál lleva la longitud.
-2. **Máscara interior separada.** EXP-003 midió que un píxel de silueta puede
-   errar 97,7 mm frente a 0,03 mm en el interior. La máscara completa se
-   conserva para diagnóstico, pero solo la erosionada se retroproyecta.
+2. **Máscara interior separada (en este experimento).** EXP-003 midió que un
+   píxel de silueta puede errar 97,7 mm frente a 0,03 mm en el interior. Aquí se
+   conservó la máscara completa para diagnóstico y se retroproyectó la
+   erosionada. EXP-006 revirtió esa decisión: el estimador actual retroproyecta
+   la máscara completa (`mask_erosion_px = 0`).
 
 El umbral de área se revisó: el prototipo usaba 500 px y la auditoría de cámara
 4.000 px. Son criterios distintos. 4.000 px es un criterio de colocación de
@@ -115,7 +117,7 @@ fuera de la vista.
 - Diferencia de profundidad por debajo del margen de 4 mm: sin primer plano.
 - Componente menor que el umbral de área: `INSUFFICIENT_FOREGROUND`.
 - Componente tocando el borde del encuadre: `FRAME_BORDER_CONTACT`.
-- Dos componentes: gana el mayor, y la erosión no sale de la máscara.
+- Dos componentes: gana el mayor; `interior_mask` no sale de `mask`.
 - Fondo de otra pose: el IoU cae más de 0,05 respecto al fondo correcto, así que
   una calibración mal asociada no pasa desapercibida.
 - Repetición: máscara idéntica bit a bit.
@@ -126,12 +128,13 @@ fuera de la vista.
   31 perdidos. Un IoU de 0,995 no implica error dimensional pequeño: los píxeles
   afectados están precisamente en el borde superior, que es donde se lee la
   altura.
-- El anillo de silueta se retira por erosión fija de 2 px. En la caja mínima esa
-  erosión se lleva un 14 % de los píxeles, frente a un 5 % en la máxima. No se
-  ha comprobado si conviene una erosión proporcional al tamaño aparente.
+- En este experimento el anillo de silueta se retiró por erosión fija de 2 px.
+  En la caja mínima esa erosión se llevaba un 14 % de los píxeles, frente a un
+  5 % en la máxima. EXP-006 midió el coste dimensional y dejó la erosión en 0.
 
 ## Decisión
 
-Se conserva la segmentación por resta de fondo por pose. El siguiente
-experimento debe retroproyectar, registrar las tres vistas en el marco del
-terminal y medir el error de registro, antes de ajustar cualquier cuboide.
+Se conserva la segmentación por resta de fondo por pose. La erosión de 2 px
+quedó como decisión de este experimento y EXP-006 la revirtió para el
+estimador. El siguiente experimento debía retroproyectar, registrar las tres
+vistas en el marco del terminal y medir el error de registro.

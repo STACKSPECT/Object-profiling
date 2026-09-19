@@ -67,7 +67,7 @@ def test_component_touching_the_frame_border_is_rejected() -> None:
     assert result.touches_border
 
 
-def test_largest_component_wins_and_interior_excludes_the_silhouette() -> None:
+def test_largest_component_wins_and_zero_erosion_keeps_the_full_mask() -> None:
     depth = _depth_with_patch(150, 150, 100, 100)
     depth[400:460, 500:560] = 1.2
 
@@ -78,7 +78,8 @@ def test_largest_component_wins_and_interior_excludes_the_silhouette() -> None:
     interior = int(np.count_nonzero(result.interior_mask))
     expected = (100 - 2 * CONFIG.sensor.mask_erosion_px) ** 2
     assert interior == expected
-    assert not np.any(result.interior_mask & ~result.mask)
+    assert CONFIG.sensor.mask_erosion_px == 0
+    assert np.array_equal(result.interior_mask, result.mask)
 
 
 def test_tool_volume_is_derived_from_the_declared_box_range() -> None:

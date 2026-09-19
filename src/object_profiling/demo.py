@@ -26,13 +26,26 @@ from .panels import (
 from .profiling_pipeline import ProfilingResult, profile
 
 
+def _format_mm(values_m: np.ndarray) -> str:
+    millimetres = values_m * 1000.0
+    return f"{millimetres[0]:7.2f} x {millimetres[1]:7.2f} x {millimetres[2]:7.2f}"
+
+
 def _solution_lines(result: ObjectDimensions) -> list[Line]:
     lines: list[Line] = [("SOLUCION", INK)]
     if result.valid and result.dimensions_m is not None:
-        dimensions = result.dimensions_m.as_array() * 1000.0
+        initial = result.dimensions_m.as_array() * 1000.0
+        published = result.catalogue_dimensions()
+        measured = published.as_array() * 1000.0 if published is not None else initial
         uncertainty = result.uncertainty_m.as_array() * 1000.0
-        for label, value, error in zip(("longitud", "anchura", "altura"), dimensions, uncertainty):
-            lines.append((f"{label:9s} {value:7.1f} +/- {error:4.2f} mm", ACCENT))
+        for index, label in enumerate(("longitud", "anchura", "altura")):
+            lines.append(
+                (
+                    f"{label:9s} ini {initial[index]:7.2f}  med {measured[index]:7.2f}"
+                    f"  +/- {uncertainty[index]:4.2f}",
+                    ACCENT,
+                )
+            )
         lines.append((f"confianza {result.confidence:.3f}", INK))
     else:
         lines.append(("RECHAZADO", WARNING))
@@ -46,13 +59,26 @@ def _solution_lines(result: ObjectDimensions) -> list[Line]:
 def _evaluation_lines(result: ObjectDimensions, truth_m: np.ndarray) -> list[Line]:
     lines: list[Line] = [("EVALUACION (fuera de la solucion)", EVALUATION_INK)]
     for label, value in zip(("longitud", "anchura", "altura"), truth_m * 1000.0):
-        lines.append((f"real {label:9s} {value:7.1f} mm", EVALUATION_INK))
+        lines.append((f"real {label:9s} {value:7.2f} mm", EVALUATION_INK))
     if result.valid and result.dimensions_m is not None:
         error = (result.dimensions_m.as_array() - truth_m) * 1000.0
         covered = np.all(np.abs(error) <= result.uncertainty_m.as_array() * 1000.0)
-        lines.append((f"error {np.round(error, 3).tolist()} mm", EVALUATION_INK))
+        lines.append((f"error inicial {np.round(error, 3).tolist()} mm", EVALUATION_INK))
         lines.append((f"dentro de incertidumbre: {'si' if covered else 'no'}", EVALUATION_INK))
     return lines
+
+
+def _console_row(result: ObjectDimensions, truth_m: np.ndarray) -> str:
+    if not result.valid or result.dimensions_m is None:
+        return f"RECHAZADO {result.rejection_reason}"
+    published = result.catalogue_dimensions() or result.dimensions_m
+    error = (result.dimensions_m.as_array() - truth_m) * 1000.0
+    return (
+        f"medido_inicial {_format_mm(result.dimensions_m.as_array())}  "
+        f"medido {_format_mm(published.as_array())}  "
+        f"real {_format_mm(truth_m)}  "
+        f"error {error[0]:+6.3f} {error[1]:+6.3f} {error[2]:+6.3f} mm"
+    )
 
 
 def compose_panels(result: ProfilingResult, truth_m: np.ndarray, state: str) -> np.ndarray:
@@ -133,6 +159,7 @@ def run_demo(
 
     if not visual:
         result = profile(environment, seed=seed, config=config, on_state=announce)
+        print(f"[demo] {_console_row(result.dimensions, truth_m)}")
         return result, compose_panels(result, truth_m, states[-1] if states else "DONE")
 
     import mujoco.viewer
@@ -152,6 +179,7 @@ def run_demo(
             environment, seed=seed, config=config, on_state=announce_visual, on_step=animate
         )
         announce_visual("DONE")
+    print(f"[demo] {_console_row(result.dimensions, truth_m)}")
     return result, compose_panels(result, truth_m, states[-1] if states else "DONE")
 
 
@@ -177,7 +205,6 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(output), panels)
     print(f"[demo] mosaico en {output}")
-    print(f"[demo] valido={result.dimensions.valid} motivo={result.dimensions.rejection_reason}")
     return 0 if result.dimensions.valid else 1
 
 

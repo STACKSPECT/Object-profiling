@@ -11,7 +11,9 @@ from object_profiling.contracts import (
     ObjectDimensions,
     RejectionReason,
     ViewDescriptor,
+    snap_to_catalogue,
 )
+from object_profiling.environment import generate_box_spec
 from object_profiling.poses import RETURN_POSE, SCAN_POSES, pose_by_name
 
 
@@ -50,6 +52,23 @@ def test_dimensions_enforce_length_width_convention() -> None:
         Dimensions3D(length=0.20, width=0.30, height=0.15)
 
 
+def test_snap_to_catalogue_recovers_the_5mm_grid() -> None:
+    snapped = snap_to_catalogue(Dimensions3D(0.2474, 0.2431, 0.2466), 0.005)
+
+    assert snapped.as_array() == pytest.approx(np.asarray([0.245, 0.245, 0.245]))
+    assert snap_to_catalogue(Dimensions3D(0.30, 0.20, 0.15), 0.0) is None
+
+
+def test_generated_boxes_live_on_the_catalogue_grid() -> None:
+    config = AppConfig()
+    step = config.catalogue_step_m
+    for seed in range(40):
+        dimensions = generate_box_spec(seed, config).dimensions_m.as_array()
+        snapped = np.round(dimensions / step) * step
+        assert dimensions == pytest.approx(snapped)
+        assert dimensions[0] >= dimensions[1]
+
+
 def test_extent_allows_uncertainty_smaller_on_length_than_width() -> None:
     uncertainty = Extent3D(length=0.001, width=0.004, height=0.002)
 
@@ -62,7 +81,9 @@ def test_object_dimensions_serializes_structured_views() -> None:
         timestamp_s=1.25,
         frame_id="tool_attachment_site",
         dimensions_m=Dimensions3D(0.30, 0.20, 0.15),
+        dimensions_snapped_m=Dimensions3D(0.30, 0.20, 0.15),
         uncertainty_m=Extent3D(0.001, 0.002, 0.001),
+        pose=None,
         views_used=tuple(pose.descriptor for pose in SCAN_POSES),
         confidence=0.9,
         valid=True,
@@ -86,7 +107,9 @@ def test_object_dimensions_serializes_rejection() -> None:
         timestamp_s=1.25,
         frame_id="tool_attachment_site",
         dimensions_m=None,
+        dimensions_snapped_m=None,
         uncertainty_m=None,
+        pose=None,
         views_used=(ViewDescriptor("SCAN_YAW_0", 0, 0),),
         confidence=0.0,
         valid=False,

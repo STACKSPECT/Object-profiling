@@ -10,8 +10,7 @@ import numpy as np
 
 from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 from .config import AppConfig
-from .contracts import BoxSpec
-from .environment import ProfilingEnvironment
+from .environment import BoxSpec, ProfilingEnvironment
 from .evaluation import GroundTruthRenderer, SegmentationMetrics, evaluate_segmentation
 from .perception import segment_foreground
 from .scanning import run_fixed_scan

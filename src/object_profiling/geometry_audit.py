@@ -10,8 +10,7 @@ import numpy as np
 
 from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 from .config import AppConfig
-from .contracts import BoxSpec, Dimensions3D
-from .environment import ProfilingEnvironment
+from .environment import BoxSpec, ProfilingEnvironment
 from .geometry import estimate_cuboid
 from .perception import observation_to_scan_view
 from .registration import FusedCloud, axis_aligned_extremes_m, fuse_scan_views

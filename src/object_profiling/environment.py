@@ -6,7 +6,21 @@ import mujoco
 import numpy as np
 
 from .config import AppConfig, SCENE_PATH
-from .contracts import BoxSpec, Dimensions3D
+from .contracts import Dimensions3D, snap_to_catalogue
+
+
+@dataclass(frozen=True)
+class BoxSpec:
+    """Caja del episodio. Es generacion de escena, no contrato publico.
+
+    Lleva las dimensiones reales, asi que no puede vivir en `contracts.py`: quien
+    importe el contrato de integracion no debe llevarse el ground truth.
+    """
+
+    object_id: str
+    dimensions_m: Dimensions3D
+    mass_kg: float
+    rgba: tuple[float, float, float, float]
 
 
 # Detras de `scan_rgbd_cam` y sobre el suelo: ni entra en el encuadre ni
@@ -46,6 +60,10 @@ def _set_weld_from_current_pose(model: mujoco.MjModel, data: mujoco.MjData, equa
     data.eq_active[equality_id] = 1
 
 
+def _clamp_to_range(value: float, bounds: tuple[float, float]) -> float:
+    return min(bounds[1], max(bounds[0], value))
+
+
 def generate_box_spec(seed: int, config: AppConfig) -> BoxSpec:
     rng = np.random.default_rng(seed)
     length = float(rng.uniform(*config.box_range.length_m))
@@ -55,9 +73,19 @@ def generate_box_spec(seed: int, config: AppConfig) -> BoxSpec:
     height = float(rng.uniform(*config.box_range.height_m))
     mass = float(rng.uniform(*config.box_range.mass_kg))
     color = tuple(float(value) for value in rng.uniform([0.45, 0.25, 0.08], [0.9, 0.65, 0.35])) + (1.0,)
+    dimensions = Dimensions3D(length=length, width=width, height=height)
+    catalogued = snap_to_catalogue(dimensions, config.catalogue_step_m)
+    if catalogued is not None:
+        dimensions = Dimensions3D(
+            length=_clamp_to_range(catalogued.length, config.box_range.length_m),
+            width=_clamp_to_range(catalogued.width, config.box_range.width_m),
+            height=_clamp_to_range(catalogued.height, config.box_range.height_m),
+        )
+        length, width = max(dimensions.length, dimensions.width), min(dimensions.length, dimensions.width)
+        dimensions = Dimensions3D(length=length, width=width, height=dimensions.height)
     return BoxSpec(
         object_id=f"box-{seed:04d}",
-        dimensions_m=Dimensions3D(length=length, width=width, height=height),
+        dimensions_m=dimensions,
         mass_kg=mass,
         rgba=color,
     )
@@ -171,21 +199,32 @@ class ProfilingEnvironment:
     def _place_box(self) -> None:
         gripper_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "profiling_gripper")
         rotation = self.data.xmat[gripper_id].reshape(3, 3).copy()
-        local_offset = np.asarray([0.0, 0.0, 0.089 + self.box_spec.dimensions_m.height / 2.0])
-        position = self.data.xpos[gripper_id] + rotation @ local_offset
+        offset = self.config.sensor.tool_to_box_offset_m + self.box_spec.dimensions_m.height / 2.0
+        position = self.data.xpos[gripper_id] + rotation @ np.asarray([0.0, 0.0, offset])
         _set_free_joint_pose(self.model, self.data, "box_free", position, rotation)
         mujoco.mj_forward(self.model, self.data)
 
     def _align_pickup_support(self) -> None:
-        """Alinea el apoyo con la base de la caja como preparacion de escena."""
+        """Coloca el apoyo a una altura fija, independiente de la caja.
+
+        Antes se alineaba con la base de la caja concreta, usando su altura real.
+        Eso hacia que el fondo de calibracion dependiese de la caja que se iba a
+        medir: no se podia reutilizar, y el procedimiento era circular, porque
+        exigia conocer una altura que todavia no se ha medido. Ahora se alinea
+        con la caja mas alta del rango declarado, que es informacion de diseno.
+        """
 
         attachment_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "attachment_site")
         support_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "pickup_support")
         support_geom_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "pickup_support_geom")
-        box_bottom_z = self.data.site_xpos[attachment_site_id, 2] - 0.089 - self.box_spec.dimensions_m.height
+        lowest_box_bottom_z = (
+            self.data.site_xpos[attachment_site_id, 2]
+            - self.config.sensor.tool_to_box_offset_m
+            - self.config.box_range.height_m[1]
+        )
         support_half_height = self.model.geom_size[support_geom_id, 2]
         self.model.geom_pos[support_geom_id, 2] = (
-            box_bottom_z - self.data.xpos[support_body_id, 2] - support_half_height
+            lowest_box_bottom_z - self.data.xpos[support_body_id, 2] - support_half_height
         )
         mujoco.mj_forward(self.model, self.data)
 

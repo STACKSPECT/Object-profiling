@@ -1,3 +1,12 @@
+"""Contrato publico de Object Profiling.
+
+Este modulo es la frontera con `hackspain/Simulation`. Contiene lo que el
+consumidor necesita construir (`CameraObservation`) y lo que recibe
+(`ObjectDimensions`). No contiene tipos de generacion de escena ni de
+evaluacion: `BoxSpec` vive en `environment.py`, `ScanView` en `perception.py` y
+`EvaluationRecord` en `evaluation.py`.
+"""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -6,8 +15,10 @@ from typing import Any
 
 import numpy as np
 
+# 3: anade CuboidPose y dimensiones ajustadas al paso de catalogo.
+OBJECT_DIMENSIONS_SCHEMA_VERSION = 3
 
-OBJECT_DIMENSIONS_SCHEMA_VERSION = 2
+AXIS_NAMES = ("x", "y", "z")
 
 
 class RejectionReason(StrEnum):
@@ -46,12 +57,18 @@ class Dimensions3D(Extent3D):
             raise ValueError("length must be greater than or equal to width")
 
 
-@dataclass(frozen=True)
-class BoxSpec:
-    object_id: str
-    dimensions_m: Dimensions3D
-    mass_kg: float
-    rgba: tuple[float, float, float, float]
+def snap_to_catalogue(dimensions: Dimensions3D, step_m: float) -> Dimensions3D | None:
+    """Redondea cada arista al paso de catalogo y reimpone length >= width.
+
+    Las cajas del equipo viven en multiplos de ese paso. La medida continua se
+    conserva aparte; esta es la que consume el paletizado.
+    """
+
+    if step_m <= 0.0:
+        return None
+    snapped = np.round(dimensions.as_array() / step_m) * step_m
+    ordered = sorted((float(snapped[0]), float(snapped[1])), reverse=True)
+    return Dimensions3D(ordered[0], ordered[1], float(snapped[2]))
 
 
 @dataclass(frozen=True)
@@ -75,6 +92,13 @@ class ViewDescriptor:
 
 @dataclass(frozen=True)
 class CameraObservation:
+    """Una captura RGB-D con todo lo necesario para medir.
+
+    Es la entrada de `measurement.measure()`. Un consumidor externo puede
+    construirla sin MuJoCo: basta con su propia camara calibrada y la cinematica
+    directa de su robot.
+    """
+
     timestamp_s: float
     pose_name: str
     target_yaw_deg: int
@@ -87,15 +111,37 @@ class CameraObservation:
 
 
 @dataclass(frozen=True)
-class ScanView:
-    pose_name: str
-    target_yaw_deg: int
-    target_tilt_deg: int
-    rgb: np.ndarray
-    depth_m: np.ndarray
-    mask: np.ndarray
-    points_tool_m: np.ndarray
-    touches_border: bool
+class CuboidPose:
+    """Cuboide ajustado, situado en el marco declarado.
+
+    Sin esto un consumidor solo tiene tres numeros y no puede transformar el
+    volumen al mundo, calcular el centro de masas geometrico ni decidir una
+    rotacion de colocacion.
+    """
+
+    center_m: tuple[float, float, float]
+    # Extension por eje del marco, en orden x, y, z. No esta reordenada.
+    extent_by_axis_m: tuple[float, float, float]
+    # Que eje del marco lleva cada dimension nombrada: 0 = x, 1 = y, 2 = z.
+    length_axis: int
+    width_axis: int
+    height_axis: int
+    # Del origen del marco al plano de contacto de las copas, donde se apoya la
+    # cara agarrada. El cuboide vive mas alla de ese plano.
+    grasp_plane_offset_m: float
+    # Cara del cuboide contra las copas, en notacion de eje con signo.
+    grasp_face: str
+
+    @property
+    def axis_names(self) -> tuple[str, str, str]:
+        return (
+            AXIS_NAMES[self.length_axis],
+            AXIS_NAMES[self.width_axis],
+            AXIS_NAMES[self.height_axis],
+        )
+
+    def center_array(self) -> np.ndarray:
+        return np.asarray(self.center_m, dtype=np.float64)
 
 
 @dataclass(frozen=True)
@@ -104,33 +150,28 @@ class ObjectDimensions:
     timestamp_s: float
     frame_id: str
     dimensions_m: Dimensions3D | None
+    # Misma caja ajustada al paso del catalogo declarado. Es `None` si no se
+    # declara ningun paso.
+    dimensions_snapped_m: Dimensions3D | None
     uncertainty_m: Extent3D | None
+    # Ordenada igual que `dimensions_m`; `pose` dice a que eje corresponde cada
+    # componente.
+    pose: CuboidPose | None
     views_used: tuple[ViewDescriptor, ...]
     confidence: float
     valid: bool
     rejection_reason: RejectionReason | None
     schema_version: int = OBJECT_DIMENSIONS_SCHEMA_VERSION
 
+    def catalogue_dimensions(self) -> Dimensions3D | None:
+        """Medida que baja al paletizado: catalogo si existe, si no la continua."""
+
+        return self.dimensions_snapped_m if self.dimensions_snapped_m is not None else self.dimensions_m
+
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["rejection_reason"] = self.rejection_reason.value if self.rejection_reason else None
         payload["views_used"] = [asdict(view) for view in self.views_used]
+        if self.pose is not None:
+            payload["pose"]["axis_names"] = list(self.pose.axis_names)
         return payload
-
-
-@dataclass(frozen=True)
-class EvaluationRecord:
-    seed: int
-    ground_truth_m: Dimensions3D
-    prediction: ObjectDimensions
-    absolute_error_m: Extent3D | None
-    perception_latency_s: float
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "seed": self.seed,
-            "ground_truth_m": asdict(self.ground_truth_m),
-            "prediction": self.prediction.to_dict(),
-            "absolute_error_m": asdict(self.absolute_error_m) if self.absolute_error_m else None,
-            "perception_latency_s": self.perception_latency_s,
-        }

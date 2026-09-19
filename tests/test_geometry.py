@@ -6,7 +6,8 @@ import numpy as np
 import pytest
 
 from object_profiling.config import AppConfig, EstimatorConfig
-from object_profiling.contracts import Dimensions3D, RejectionReason, ScanView
+from object_profiling.contracts import Dimensions3D, RejectionReason
+from object_profiling.perception import ScanView
 from object_profiling.geometry import (
     FaceCoverage,
     combine_uncertainty_m,

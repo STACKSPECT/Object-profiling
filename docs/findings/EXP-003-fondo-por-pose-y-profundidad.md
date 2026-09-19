@@ -54,8 +54,9 @@ EXP-004 mide demasiados píxeles falsos sobre el terminal.
 
 Para cada pose se compara la profundidad renderizada contra la intersección
 geométrica exacta obtenida con `mj_ray`, restringida a la máscara ground truth
-de la caja. La máscara se erosiona 2 px para separar dos poblaciones muy
-distintas: el interior de las caras y el anillo de silueta.
+de la caja. **En esta auditoría** la máscara GT se erosiona 2 px para separar
+dos poblaciones muy distintas: el interior de las caras y el anillo de silueta.
+Esa erosión no forma parte del estimador.
 
 `mj_ray` y la máscara ground truth son herramientas de auditoría. No forman
 parte del camino de la solución.
@@ -130,8 +131,10 @@ no por las caras de la caja, y no describía lo que el estimador va a medir.
 Se conservan el fondo por pose mediante pasada previa y la auditoría de
 profundidad como referencia reproducible.
 
-Consecuencia directa para EXP-004 y EXP-006: **erosionar la máscara antes de
-retroproyectar**. Confiar en percentiles sobre todos los píxeles visibles
-arrastra puntos de silueta con error centimétrico. El siguiente experimento debe
-segmentar la caja usando solo RGB-D y medir IoU, precisión, recall y píxeles
-falsos del terminal contra la máscara ground truth.
+La silueta tiene error centimétrico en profundidad; el interior, de micras. Eso
+no implica erosionar la máscara del estimador antes de retroproyectar: esos
+píxeles de borde son los únicos que marcan extremos no vistos de frente.
+EXP-006 midió que erosionar 2 px costaba ~5 mm de anchura y dejó
+`mask_erosion_px = 0`. El siguiente experimento (entonces) debía segmentar la
+caja usando solo RGB-D y medir IoU, precisión, recall y píxeles falsos del
+terminal contra la máscara ground truth.

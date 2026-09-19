@@ -1,2 +1,0 @@
-[console_scripts]
-object-profiling-checkpoint = object_profiling.checkpoint:main

@@ -65,7 +65,17 @@ def test_visual_and_headless_share_the_measurement_path() -> None:
 
     source = (PACKAGE / "presentation" / "demo.py").read_text(encoding="utf-8")
 
-    assert source.count("profile(") >= 2
+    assert source.count("profile_session(") == 1
     assert "estimate_cuboid" not in source
     assert "segment_foreground" not in source
     assert "fuse_scan_views" not in source
+    assert "launch_passive" in source
+
+
+def test_headless_demo_loops_several_boxes() -> None:
+    result, panels = run_demo(SEED, visual=False, speed=1.0, count=2)
+
+    assert result.dimensions.object_id == "box-0043"
+    assert result.dimensions.valid is True
+    assert panels.shape[1] == TILE[0] * 3
+    assert panels.any()

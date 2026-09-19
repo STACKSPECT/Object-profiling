@@ -37,8 +37,12 @@ EVALUATION_GLOBS = (
 
 PRIVILEGED_TOKENS = (
     "box_geom",
+    "box_collision",
+    "box_mesh",
     "profiling_box",
     "box_spec",
+    "DamageSpec",
+    "damage_spec",
     "body_to_world",
     "gripper_to_box",
     "mjOBJ_GEOM",
@@ -108,6 +112,10 @@ def test_every_python_module_is_classified() -> None:
     known = {path.resolve() for path in _existing(SOLUTION_PATHS)}
     known.add((PACKAGE / "__init__.py").resolve())
     known.add((PACKAGE / "station" / "environment.py").resolve())
+    known.add((PACKAGE / "station" / "boxmesh.py").resolve())
+    known.add((PACKAGE / "station" / "damage.py").resolve())
+    known.add((PACKAGE / "station" / "discard.py").resolve())
+    known.add((PACKAGE / "station" / "scene.py").resolve())
     known.add((PACKAGE / "station" / "__init__.py").resolve())
     known.add((PACKAGE / "measure" / "__init__.py").resolve())
     known.add((PACKAGE / "presentation" / "__init__.py").resolve())

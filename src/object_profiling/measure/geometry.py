@@ -231,6 +231,34 @@ def estimate_cuboid(
     )
 
 
+def provisional_cuboid(cloud: FusedCloud, config: AppConfig) -> CuboidEstimate | None:
+    """AABB de la nube para inspeccionar dano cuando el cuboide se rechaza.
+
+    No publica dimensiones. Solo da un prior geometrico al inspector.
+    """
+
+    points = cloud.points_m
+    if points.shape[0] < 50:
+        return None
+    estimator = config.estimator
+    lower, upper = axis_aligned_extremes_m(points, estimator.percentile_low, estimator.percentile_high)
+    coverage = face_coverage(points, lower, upper, config)
+    residual = distance_to_box_surface_m(points, lower, upper)
+    residual_p95 = float(np.percentile(residual, 95))
+    return CuboidEstimate(
+        dimensions=dimensions_from_extent(upper - lower),
+        uncertainty=Extent3D(0.0, 0.0, 0.0),
+        confidence=0.0,
+        lower_m=lower,
+        upper_m=upper,
+        points=int(points.shape[0]),
+        residual_p95_m=residual_p95,
+        view_plane_residual_m=residual_p95,
+        view_extent_disagreement_m=np.zeros(3),
+        coverage=coverage,
+    )
+
+
 def _confidence(
     point_count: int,
     residual_p95_m: float,

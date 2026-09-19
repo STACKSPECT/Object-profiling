@@ -1,13 +1,31 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
 
+def _path_for_mujoco(path: Path) -> Path:
+    """MuJoCo's C XML parser cannot open Unicode paths on Windows."""
+
+    resolved = path.resolve()
+    if os.name != "nt":
+        return resolved
+    import ctypes
+
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = ctypes.windll.kernel32.GetShortPathNameW(str(resolved), buffer, len(buffer))
+    if length:
+        return Path(buffer.value)
+    return resolved
+
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SCENE_PATH = PROJECT_ROOT / "assets" / "universal_robots_ur10e" / "profiling_scene.xml"
+SCENE_PATH = _path_for_mujoco(
+    PROJECT_ROOT / "assets" / "universal_robots_ur10e" / "profiling_scene.xml"
+)
 
 
 @dataclass(frozen=True)
@@ -107,6 +125,21 @@ class MotionConfig:
 
 
 @dataclass(frozen=True)
+class DamageConfig:
+    # Prevalencia operativa tras CP6. Los audits de desarrollo pasan 0.5.
+    rate: float = 0.1
+    severity_fraction: tuple[float, float] = (0.02, 0.25)
+    relative_threshold: float = 0.05
+    # Suelo absoluto: ruido de intactas en el entorno ideal es < 1 mm. El valor
+    # se revisa con la distribucion de CP3; 3 mm deja margen sobre ese suelo.
+    absolute_floor_m: float = 0.003
+    corner_radius_m: float = 0.020
+    edge_radius_m: float = 0.004
+    minimum_corner_support: int = 15
+    cluster_inward_m: float = 0.002
+
+
+@dataclass(frozen=True)
 class AppConfig:
     # Paso del catalogo de cajas. La salida publica incluye la medida ajustada a
     # este paso; con 0 no se publica ninguna medida ajustada.
@@ -115,3 +148,4 @@ class AppConfig:
     sensor: SensorConfig = field(default_factory=SensorConfig)
     estimator: EstimatorConfig = field(default_factory=EstimatorConfig)
     motion: MotionConfig = field(default_factory=MotionConfig)
+    damage: DamageConfig = field(default_factory=DamageConfig)

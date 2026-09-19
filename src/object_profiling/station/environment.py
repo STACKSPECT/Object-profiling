@@ -5,8 +5,18 @@ from dataclasses import dataclass
 import mujoco
 import numpy as np
 
-from ..config import AppConfig, SCENE_PATH
+from ..config import AppConfig
 from ..contracts import Dimensions3D, snap_to_catalogue
+from .boxmesh import cuboid_mesh
+from .damage import INTACT_DAMAGE, DamageSpec, apply_damage, generate_damage_spec
+from .scene import (
+    BoxMeshBinding,
+    bind_box_mesh,
+    compile_scene_spec,
+    inject_box_mesh,
+    load_scene_spec,
+    write_box_vertices,
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +31,7 @@ class BoxSpec:
     dimensions_m: Dimensions3D
     mass_kg: float
     rgba: tuple[float, float, float, float]
+    damage: DamageSpec = INTACT_DAMAGE
 
 
 # Detras de `scan_rgbd_cam` y sobre el suelo: ni entra en el encuadre ni
@@ -83,11 +94,13 @@ def generate_box_spec(seed: int, config: AppConfig) -> BoxSpec:
         )
         length, width = max(dimensions.length, dimensions.width), min(dimensions.length, dimensions.width)
         dimensions = Dimensions3D(length=length, width=width, height=dimensions.height)
+    damage = generate_damage_spec(rng, dimensions, config)
     return BoxSpec(
         object_id=f"box-{seed:04d}",
         dimensions_m=dimensions,
         mass_kg=mass,
         rgba=color,
+        damage=damage,
     )
 
 
@@ -97,6 +110,7 @@ class ProfilingEnvironment:
     box_spec: BoxSpec
     model: mujoco.MjModel
     data: mujoco.MjData
+    mesh: BoxMeshBinding
     box_visible: bool = True
 
     @classmethod
@@ -127,7 +141,9 @@ class ProfilingEnvironment:
         attach_box: bool = True,
     ) -> "ProfilingEnvironment":
         config = config or AppConfig()
-        model = mujoco.MjModel.from_xml_path(str(SCENE_PATH))
+        spec = load_scene_spec()
+        authored_vertices, authored_faces = inject_box_mesh(spec)
+        model = compile_scene_spec(spec)
         # Menagerie usa actuadores deliberadamente genericos. Estos ganhos
         # permiten sostener el terminal y una caja de hasta 5 kg sin modificar
         # el modelo cinematico del UR10e.
@@ -135,7 +151,8 @@ class ProfilingEnvironment:
         model.actuator_biasprm[:, 1] = -15_000.0
         model.actuator_biasprm[:, 2] = -1_200.0
         data = mujoco.MjData(model)
-        environment = cls(config=config, box_spec=box_spec, model=model, data=data)
+        mesh = bind_box_mesh(model, authored_vertices, authored_faces)
+        environment = cls(config=config, box_spec=box_spec, model=model, data=data, mesh=mesh)
         environment.reset(attach_box=attach_box)
         return environment
 
@@ -150,6 +167,11 @@ class ProfilingEnvironment:
         self.box_spec = box_spec
         self.reset(attach_box=attach_box)
 
+    def load_seed(self, seed: int, *, attach_box: bool = False) -> None:
+        """Genera y carga la caja de una seed, sin recargar el modelo."""
+
+        self.load_box(generate_box_spec(seed, self.config), attach_box=attach_box)
+
     def reset(self, *, attach_box: bool = True) -> None:
         mujoco.mj_resetData(self.model, self.data)
         self.data.qpos[:6] = np.asarray(self.config.motion.home_qpos)
@@ -161,6 +183,10 @@ class ProfilingEnvironment:
         # Recalcularlas antes de crear los welds hace efectiva la altura del
         # apoyo para cajas de cualquier altura del rango.
         mujoco.mj_setConst(self.model, self.data)
+        # mj_setConst puede reescribir geom_size de la malla a partir de los
+        # vertices actuales; eso escala un activo que ya esta en metros.
+        visual_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
+        self.model.geom_size[visual_id] = self.mesh.compiled_geom_size
         # mj_setConst restaura temporalmente qpos0; recuperar la pose inicial
         # declarada antes de colocar el terminal y la caja.
         self.data.qpos[:6] = np.asarray(self.config.motion.home_qpos)
@@ -174,15 +200,19 @@ class ProfilingEnvironment:
 
     def _configure_box_model(self) -> None:
         dimensions = self.box_spec.dimensions_m
-        geom_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
+        visual_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
+        collision_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "box_collision")
         body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "profiling_box")
-        self.model.geom_size[geom_id] = dimensions.as_array() / 2.0
-        self.model.geom_rgba[geom_id] = self.box_spec.rgba
+        half = dimensions.as_array() / 2.0
+        self.model.geom_size[collision_id] = half
+        self.model.geom_rgba[visual_id] = self.box_spec.rgba
         self.model.body_mass[body_id] = self.box_spec.mass_kg
-        # Deshace un posible aparcamiento previo de la caja.
-        self.model.geom_contype[geom_id] = 1
-        self.model.geom_conaffinity[geom_id] = 1
+        self.model.geom_contype[collision_id] = 1
+        self.model.geom_conaffinity[collision_id] = 1
         self.box_visible = True
+        authored = cuboid_mesh(half).vertices
+        authored = apply_damage(authored, half, self.box_spec.damage)
+        write_box_vertices(self.model, self.mesh, authored, half)
         length, width, height = dimensions.as_array()
         self.model.body_inertia[body_id] = self.box_spec.mass_kg / 12.0 * np.asarray(
             [width * width + height * height, length * length + height * height, length * length + width * width]
@@ -258,17 +288,20 @@ class ProfilingEnvironment:
         conocido.
         """
 
-        box_geom_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
+        box_collision_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "box_collision")
+        box_visual_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
         equality_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_EQUALITY, "gripper_to_box")
         if visible:
-            self.model.geom_contype[box_geom_id] = 1
-            self.model.geom_conaffinity[box_geom_id] = 1
+            self.model.geom_contype[box_collision_id] = 1
+            self.model.geom_conaffinity[box_collision_id] = 1
+            self.model.geom_rgba[box_visual_id, 3] = 1.0
             self._place_box()
             self.attach_box()
         else:
             self.data.eq_active[equality_id] = 0
-            self.model.geom_contype[box_geom_id] = 0
-            self.model.geom_conaffinity[box_geom_id] = 0
+            self.model.geom_contype[box_collision_id] = 0
+            self.model.geom_conaffinity[box_collision_id] = 0
+            self.model.geom_rgba[box_visual_id, 3] = 0.0
             _set_free_joint_pose(self.model, self.data, "box_free", BOX_PARKING_POSITION_M, np.eye(3))
         self.box_visible = visible
         mujoco.mj_forward(self.model, self.data)
@@ -300,6 +333,11 @@ class ProfilingEnvironment:
         box_to_world = self.body_to_world("profiling_box")
         return np.linalg.inv(gripper_to_world) @ box_to_world
 
+    def attachment_box_transform(self) -> np.ndarray:
+        """Caja en el marco del terminal. El pipeline la guarda antes del descarte."""
+
+        return np.linalg.inv(self.tool_to_world()) @ self.body_to_world("profiling_box")
+
     def tool_to_world(self) -> np.ndarray:
         site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "attachment_site")
         transform = np.eye(4)
@@ -308,6 +346,11 @@ class ProfilingEnvironment:
         return transform
 
     def active_cup_names(self) -> tuple[str, ...]:
+        """Copas que cubre el envolvente L×W, no la malla danada.
+
+        Un chaflan de esquina puede dejar una copa exterior sobre el vacio; el
+        weld rígido las sella igual. Queda declarado: no valida el vacio.
+        """
         half_length = self.box_spec.dimensions_m.length / 2.0
         half_width = self.box_spec.dimensions_m.width / 2.0
         cups = {

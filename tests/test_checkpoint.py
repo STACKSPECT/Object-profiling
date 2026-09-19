@@ -5,7 +5,10 @@ import argparse
 import numpy as np
 import pytest
 
+from dataclasses import replace
+
 from object_profiling.evaluation.checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX, _positive_speed, run_checkpoint
+from object_profiling.station.damage import DamageKind, DamageSpec
 from object_profiling.station.environment import ProfilingEnvironment
 
 
@@ -53,7 +56,23 @@ def test_fixed_motion_supports_box_range_endpoints(box_spec) -> None:
     ]
 
 
-def test_checkpoint_is_deterministic() -> None:
+@pytest.mark.parametrize(
+    "damage",
+    [
+        DamageSpec(DamageKind.CRUSHED_CORNER, 0.03, "corner:+x+y+z"),
+        DamageSpec(DamageKind.DENTED_FACE, 0.025, "face:+x", radius_m=0.05),
+        DamageSpec(DamageKind.BUCKLED_PANEL, 0.02, "face:+y"),
+    ],
+)
+def test_damaged_boxes_complete_the_checkpoint(damage: DamageSpec) -> None:
+    report = run_checkpoint(seed=42, box_spec=replace(NOMINAL_BOX, damage=damage))
+
+    assert report["success"] is True
+    assert report["unexpected_box_contact_samples"] == 0
+    assert report["assumptions"]["collision_envelope"] == "axis_aligned_box_not_damaged_mesh"
+
+
+def test_repeating_the_checkpoint_is_deterministic() -> None:
     first = run_checkpoint(seed=42)
     second = run_checkpoint(seed=42)
 

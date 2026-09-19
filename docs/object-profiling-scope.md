@@ -11,7 +11,9 @@ varias orientaciones ante una cámara y estimar:
 - anchura;
 - altura;
 - incertidumbre de cada dimensión;
-- validez de la medición y causa de rechazo.
+- validez de la medición y causa de rechazo;
+- condición estructural (`INTACT` / `DAMAGED` / `UNKNOWN`) y pista de
+  enrutado (`NORMAL` / `ERROR_ZONE`).
 
 Las tres dimensiones deben obtenerse de observaciones sensóricas. La geometría,
 pose y dimensiones internas de MuJoCo solo pueden utilizarse como ground truth
@@ -154,6 +156,9 @@ ObjectDimensions
   confidence
   valid
   rejection_reason
+  condition
+  routing
+  damage
 ```
 
 El centro, orientación, puntos segmentados y cuboide reconstruido pueden

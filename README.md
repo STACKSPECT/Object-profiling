@@ -10,12 +10,14 @@ consumibles por el resto del sistema. Este repositorio sí incluye el agarre y
 los movimientos del UR10e necesarios para medir; no incluye el cálculo del
 centro de masas, la reconstrucción del palé ni la planificación de colocación.
 
-## Estado actual: medición completa con trayectoria fija
+## Estado actual: medición y condición estructural
 
-El ciclo mide las tres dimensiones de extremo a extremo:
+El ciclo mide las tres dimensiones y decide si la caja sigue siendo un
+cuboide apilable. Si no lo es, el brazo la lleva al contenedor de rechazo:
 
 ```text
 CALIBRATE_BACKGROUND
+-> BOX_k_OF_n
 -> PRESENT_BOX
 -> ATTACH_SUCTION
 -> SCAN_YAW_0
@@ -23,13 +25,17 @@ CALIBRATE_BACKGROUND
 -> SCAN_YAW_180
 -> ESTIMATE
 -> VALIDATE
+-> MOVE_TO_ERROR_ZONE / RELEASE  (solo si routing = ERROR_ZONE)
 -> PROFILE_READY / rechazo con motivo
+-> CLEAR_BOX                     (si quedan cajas)
 ```
 
-La trayectoria es fija: no elige vistas según el resultado. La medida usa
-`SCAN_YAW_0` y `SCAN_YAW_90` (EXP-008). `SCAN_YAW_180` es el segundo giro en el
-mismo sentido, para inspección de caras; no entra en `measure()`. Cámara RGB-D
-fija por debajo de la caja (EXP-009).
+`--count n` repite el ciclo n veces. Cada caja se genera, se mide, se acepta o
+se descarta, y desaparece antes de que aparezca la siguiente. Los fondos se
+calibran una sola vez. La trayectoria es fija: no elige vistas según el
+resultado. La medida usa `SCAN_YAW_0` y `SCAN_YAW_90` (EXP-008). `SCAN_YAW_180`
+es el segundo giro en el mismo sentido, para inspección de caras; no entra en
+`measure()`. Cámara RGB-D fija por debajo de la caja (EXP-009).
 
 La tabla de 300 seeds siguiente es EXP-008 (cámara **alta**). Con la cámara
 baja de esta rama, 20 seeds (1000–1019): MAE L/W/H 0,016 / 0,195 / 0,102 mm,
@@ -51,19 +57,29 @@ latencia de percepción p50 de 25 ms y ciclo p50 de 0,23 s. Comparación con el
 ciclo de tres poses en
 [EXP-007](docs/findings/EXP-007-benchmark-dimensiones-variables.md) y
 [EXP-008](docs/findings/EXP-008-ablacion-poses-escaneo.md).
+Tras sustituir la primitiva por malla, 30 seeds (1000–1029) dan MAE
+0,024 / 0,154 / 0,985 mm
+([EXP-010](docs/findings/EXP-010-malla-y-generacion-de-dano.md)).
+
+El 10 % de las cajas se generan dañadas. El inspector geométrico no usa el
+ground truth de escena. `valid` habla de la calidad de la medida, no de si
+la caja es apilable. Limitaciones y tasas en
+[EXP-013](docs/findings/EXP-013-reconocimiento-de-dano.md) y
+[EXP-014](docs/findings/EXP-014-descarte-y-prevalencia.md).
 
 La succión se abstrae mediante un `equality weld` rígido declarado de MuJoCo. Eso
 **no** valida sellado, fugas, cartón poroso, deformación ni deslizamiento.
 
 ### Contrato de salida
 
-`ObjectDimensions`, versión de esquema 3, en el marco `ur10e_attachment_site`.
+`ObjectDimensions`, versión de esquema 4, en el marco `ur10e_attachment_site`.
 `dimensions_m` es la medida continua; el palé debe usar `dimensions_snapped_m`
-(múltiplos de 5 mm). `pose` es opcional.
+(múltiplos de 5 mm). `pose` es opcional. `condition` / `routing` / `damage`
+describen si la caja es un cuboide apilable; no sustituyen a `valid`.
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "object_id": "box-0042",
   "timestamp_s": 3.588,
   "frame_id": "ur10e_attachment_site",
@@ -74,7 +90,19 @@ La succión se abstrae mediante un `equality weld` rígido declarado de MuJoCo. 
   "views_used": [{"pose_name": "SCAN_YAW_0", "yaw_deg": 0, "tilt_deg": 0}],
   "confidence": 0.92,
   "valid": true,
-  "rejection_reason": null
+  "rejection_reason": null,
+  "condition": "DAMAGED",
+  "routing": "ERROR_ZONE",
+  "damage": {
+    "kind": "CRUSHED_CORNER",
+    "severity_m": 0.031,
+    "location": "corner:+x+y-z",
+    "evidence": {
+      "face_planarity_p95_m": 0.0008,
+      "edge_straightness_p95_m": 0.0219,
+      "weakest_corner_support": 3
+    }
+  }
 }
 ```
 
@@ -99,11 +127,25 @@ source .venv/bin/activate
 object-profiling-profile --seed 42 --output results/profile-seed-42.json
 ```
 
+Medir n cajas seguidas en la misma estación. La seed es la de la primera caja;
+las siguientes usan `seed+i`. Con `--count` mayor que 1 el JSON es una lista:
+
+```bash
+object-profiling-profile --seed 42 --count 8 --output results/profile-42-49.json
+```
+
 Demo de una caja, con mosaico de RGB, profundidad, máscara observable, nube
 fusionada y resultado. El ground truth aparece solo en el panel de evaluación:
 
 ```bash
 object-profiling-demo --headless --seed 42
+```
+
+El mismo visor recorre n cajas: mide, acepta o descarta, retira la caja y genera
+la siguiente. `--count` vale 1 por defecto:
+
+```bash
+object-profiling-demo --headless --seed 42 --count 8
 ```
 
 Demo de varias cajas, con una fila por caja comparando medido frente a real y un
@@ -119,7 +161,7 @@ En macOS las dos con visor de MuJoCo necesitan `mjpython`. El showcase mide las
 seis cajas seguidas en un único visor, porque MuJoCo solo admite uno por proceso:
 
 ```bash
-mjpython -m object_profiling.presentation.demo --visual --seed 42 --speed 1.0
+mjpython -m object_profiling.presentation.demo --visual --seed 42 --count 8 --speed 1.0
 mjpython -m object_profiling.presentation.showcase --visual --speed 1.0
 ```
 
@@ -145,6 +187,10 @@ object-profiling-depth-audit --output results/depth-audit.json
 object-profiling-segmentation-audit --artifacts artifacts/segmentation-audit --output results/segmentation-audit.json
 object-profiling-registration-audit --artifacts artifacts/registration-audit --output results/registration-audit.json
 object-profiling-geometry-audit --output results/geometry-audit.json
+object-profiling-damage-audit --artifacts artifacts/damage-audit --output results/damage-audit.json
+object-profiling-inspection-audit --start 8000 --count 20 --damage-rate 0.5 --output results/inspection-audit.json
+object-profiling-discard-audit --start 8100 --count 8 --output results/discard-audit.json
+object-profiling-checkpoint --start 200 --count 16 --damage-rate 1.0 --output results/checkpoint-damaged.json
 ```
 
 ## Fuera de este incremento
@@ -174,6 +220,7 @@ python -m pytest -p no:cacheprovider
 - [Reto THEKER](docs/track-theker-hackspain-26.md)
 - [Alcance técnico de Object Profiling](docs/object-profiling-scope.md)
 - [Comparación de enfoques de medición](docs/measurement-approaches-handoff.md)
+- [Detección de cajas dañadas: ground truth y plan](docs/damaged-box-detection-plan.md)
 - [Registro de experimentos](docs/findings/README.md)
 - [EXP-000: agarre, elevación y rotación](docs/findings/EXP-000-agarre-elevacion-rotacion.md)
 - [EXP-001: trayectoria fija con inclinación](docs/findings/EXP-001-trayectoria-fija-inclinacion-35.md)
@@ -185,3 +232,8 @@ python -m pytest -p no:cacheprovider
 - [EXP-007: benchmark de dimensiones variables](docs/findings/EXP-007-benchmark-dimensiones-variables.md)
 - [EXP-008: ablación de poses de escaneo](docs/findings/EXP-008-ablacion-poses-escaneo.md)
 - [EXP-009: cámara baja para medir con dos vistas; yaw 180 solo defectos](docs/findings/EXP-009-camara-baja-yaw-180.md)
+- [EXP-010: malla única y generación de daño](docs/findings/EXP-010-malla-y-generacion-de-dano.md)
+- [EXP-011: agarre de cajas dañadas](docs/findings/EXP-011-agarre-de-cajas-danadas.md)
+- [EXP-012: señales de inspección](docs/findings/EXP-012-senales-de-inspeccion.md)
+- [EXP-013: reconocimiento de daño](docs/findings/EXP-013-reconocimiento-de-dano.md)
+- [EXP-014: descarte y prevalencia 10 %](docs/findings/EXP-014-descarte-y-prevalencia.md)

@@ -8,22 +8,25 @@ integracion: cualquier consumidor que pueda producir `CameraObservation` y un
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
 from ..config import AppConfig
 from ..contracts import (
+    BoxCondition,
     CameraObservation,
     CuboidPose,
     ObjectDimensions,
     RejectionReason,
+    RoutingHint,
     ViewDescriptor,
     snap_to_catalogue,
 )
 from .background import BackgroundSet, MissingBackgroundError
 from .backproject import lateral_pitch_m
-from .geometry import CuboidEstimate, axis_assignment, estimate_cuboid
+from .geometry import CuboidEstimate, axis_assignment, estimate_cuboid, provisional_cuboid
+from .inspection import DamageAssessment, InspectionMetrics, assess_damage, inspect_cloud
 from .perception import ScanView, observation_to_scan_view
 from .registration import TOOL_FRAME_ID, FusedCloud, fuse_scan_views
 
@@ -45,6 +48,8 @@ class MeasurementResult:
     cloud: FusedCloud | None
     views: tuple[ScanView, ...]
     rejected_views: tuple[tuple[str, str], ...]
+    inspection: InspectionMetrics | None = None
+    assessment: DamageAssessment | None = None
 
 
 def _cuboid_pose(estimate: CuboidEstimate, config: AppConfig) -> CuboidPose:
@@ -82,6 +87,9 @@ def _rejected(
         confidence=0.0,
         valid=False,
         rejection_reason=reason,
+        condition=BoxCondition.UNKNOWN,
+        routing=RoutingHint.NORMAL,
+        damage=None,
     )
 
 
@@ -149,14 +157,32 @@ def measure(
         cloud, config, seed=bootstrap_seed, lateral_pitch_m=float(np.median(pitches))
     )
     if estimate is None:
+        inspection = None
+        assessment = None
+        dimensions = _rejected(object_id, timestamp, reason, views)
+        fallback = provisional_cuboid(cloud, config)
+        if fallback is not None:
+            inspection = inspect_cloud(cloud, fallback, config)
+            assessment = assess_damage(inspection, fallback.dimensions.as_array(), config)
+            if assessment.condition is BoxCondition.DAMAGED:
+                dimensions = replace(
+                    dimensions,
+                    condition=assessment.condition,
+                    routing=assessment.routing,
+                    damage=assessment.report,
+                )
         return MeasurementResult(
-            dimensions=_rejected(object_id, timestamp, reason, views),
+            dimensions=dimensions,
             estimate=None,
             cloud=cloud,
             views=tuple(views),
             rejected_views=tuple(rejected),
+            inspection=inspection,
+            assessment=assessment,
         )
 
+    inspection = inspect_cloud(cloud, estimate, config)
+    assessment = assess_damage(inspection, estimate.dimensions.as_array(), config)
     return MeasurementResult(
         dimensions=ObjectDimensions(
             object_id=object_id,
@@ -170,9 +196,14 @@ def measure(
             confidence=estimate.confidence,
             valid=True,
             rejection_reason=None,
+            condition=assessment.condition,
+            routing=assessment.routing,
+            damage=assessment.report,
         ),
         estimate=estimate,
         cloud=cloud,
         views=tuple(views),
         rejected_views=tuple(rejected),
+        inspection=inspection,
+        assessment=assessment,
     )

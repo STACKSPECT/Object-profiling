@@ -9,7 +9,7 @@ import pytest
 
 from object_profiling.evaluation.checkpoint import MAXIMUM_BOX, MINIMUM_BOX
 from object_profiling.config import AppConfig, EstimatorConfig
-from object_profiling.station.environment import ProfilingEnvironment
+from object_profiling.station.environment import ProfilingEnvironment, generate_box_spec
 from object_profiling.presentation.panels import HEADER_HEIGHT
 from object_profiling.presentation.showcase import (
     CASE_TILE,
@@ -68,7 +68,7 @@ def test_load_box_retargets_the_same_model() -> None:
 
     environment = ProfilingEnvironment.create(MINIMUM_BOX, CONFIG, attach_box=False)
     model = environment.model
-    geom_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
+    geom_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "box_collision")
     small = model.geom_size[geom_id].copy()
 
     environment.load_box(MAXIMUM_BOX)
@@ -77,6 +77,18 @@ def test_load_box_retargets_the_same_model() -> None:
     assert environment.box_spec is MAXIMUM_BOX
     assert np.all(model.geom_size[geom_id] > small)
     assert model.geom_size[geom_id] == pytest.approx(MAXIMUM_BOX.dimensions_m.as_array() / 2.0)
+    assert not environment.box_attached
+
+
+def test_load_seed_generates_the_box_of_that_seed() -> None:
+    environment = ProfilingEnvironment.create(MINIMUM_BOX, CONFIG, attach_box=False)
+    model = environment.model
+
+    environment.load_seed(42)
+
+    assert environment.model is model
+    assert environment.object_id == "box-0042"
+    assert environment.box_spec == generate_box_spec(42, CONFIG)
     assert not environment.box_attached
 
 
@@ -131,7 +143,7 @@ def test_the_summary_aggregates_the_error(showcase) -> None:
         assert report["mae_mm"][axis] == pytest.approx(float(np.mean(errors[:, index])))
     assert report["worst_absolute_error_mm"] == pytest.approx(float(np.max(errors)))
     assert len(report["results"]) == SHOWCASE_CASE_COUNT
-    assert report["results"][0]["prediction"]["schema_version"] == 3
+    assert report["results"][0]["prediction"]["schema_version"] == 4
 
 
 def test_a_rejected_case_still_appears_on_the_sheet() -> None:

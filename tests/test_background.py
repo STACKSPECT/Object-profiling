@@ -52,7 +52,7 @@ def test_reset_restores_the_box_after_hiding() -> None:
     environment.reset(attach_box=False)
 
     assert environment.box_visible
-    geom_id = mujoco.mj_name2id(environment.model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
+    geom_id = mujoco.mj_name2id(environment.model, mujoco.mjtObj.mjOBJ_GEOM, "box_collision")
     assert environment.model.geom_contype[geom_id] == 1
     assert environment.model.geom_conaffinity[geom_id] == 1
 

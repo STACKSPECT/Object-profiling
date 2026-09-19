@@ -15,8 +15,8 @@ from typing import Any
 
 import numpy as np
 
-# 3: anade CuboidPose y dimensiones ajustadas al paso de catalogo.
-OBJECT_DIMENSIONS_SCHEMA_VERSION = 3
+# 4: anade condition, routing y el informe de dano estructural.
+OBJECT_DIMENSIONS_SCHEMA_VERSION = 4
 
 AXIS_NAMES = ("x", "y", "z")
 
@@ -32,6 +32,31 @@ class RejectionReason(StrEnum):
     RENDER_FAILURE = "RENDER_FAILURE"
     MISSING_BACKGROUND = "MISSING_BACKGROUND"
     INSUFFICIENT_FACE_COVERAGE = "INSUFFICIENT_FACE_COVERAGE"
+
+
+class BoxCondition(StrEnum):
+    INTACT = "INTACT"
+    DAMAGED = "DAMAGED"
+    UNKNOWN = "UNKNOWN"
+
+
+class RoutingHint(StrEnum):
+    NORMAL = "NORMAL"
+    ERROR_ZONE = "ERROR_ZONE"
+
+
+class StructuralDamageKind(StrEnum):
+    CRUSHED_CORNER = "CRUSHED_CORNER"
+    DENTED_FACE = "DENTED_FACE"
+    BUCKLED_PANEL = "BUCKLED_PANEL"
+
+
+@dataclass(frozen=True)
+class DamageReport:
+    kind: StructuralDamageKind
+    severity_m: float
+    location: str
+    evidence: dict[str, float]
 
 
 @dataclass(frozen=True)
@@ -161,6 +186,9 @@ class ObjectDimensions:
     confidence: float
     valid: bool
     rejection_reason: RejectionReason | None
+    condition: BoxCondition = BoxCondition.UNKNOWN
+    routing: RoutingHint = RoutingHint.NORMAL
+    damage: DamageReport | None = None
     schema_version: int = OBJECT_DIMENSIONS_SCHEMA_VERSION
 
     def catalogue_dimensions(self) -> Dimensions3D | None:
@@ -171,7 +199,11 @@ class ObjectDimensions:
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["rejection_reason"] = self.rejection_reason.value if self.rejection_reason else None
+        payload["condition"] = self.condition.value
+        payload["routing"] = self.routing.value
         payload["views_used"] = [asdict(view) for view in self.views_used]
+        if self.damage is not None:
+            payload["damage"]["kind"] = self.damage.kind.value
         if self.pose is not None:
             payload["pose"]["axis_names"] = list(self.pose.axis_names)
         return payload

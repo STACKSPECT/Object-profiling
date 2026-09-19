@@ -49,7 +49,8 @@ def evaluate_seed(seed: int, config: AppConfig | None = None) -> tuple[Evaluatio
 
     registration = None
     if result.cloud is not None:
-        metrics = evaluate_registration(result.cloud.points_m, box_to_tool(environment), truth_array)
+        transform = result.box_to_tool_m if result.box_to_tool_m is not None else box_to_tool(environment)
+        metrics = evaluate_registration(result.cloud.points_m, transform, truth_array)
         registration = asdict(metrics)
     diagnostics = {
         "cycle_duration_s": cycle_duration,

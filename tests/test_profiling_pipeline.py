@@ -9,7 +9,7 @@ from object_profiling.config import AppConfig, EstimatorConfig, SensorConfig
 from object_profiling.contracts import OBJECT_DIMENSIONS_SCHEMA_VERSION, RejectionReason
 from object_profiling.station.environment import ProfilingEnvironment, generate_box_spec
 from object_profiling.station.poses import SCAN_POSES
-from object_profiling.station.pipeline import profile, profile_seed
+from object_profiling.station.pipeline import profile, profile_seed, profile_session
 from object_profiling.measure.registration import TOOL_FRAME_ID
 from object_profiling.station.scanning import run_fixed_scan
 from object_profiling.station.camera import RGBDSensor
@@ -41,6 +41,9 @@ def test_the_fixed_cycle_produces_a_valid_profile(nominal_profile) -> None:
     assert result.dimensions_m is not None
     assert result.uncertainty_m is not None
     assert 0.0 <= result.confidence <= 1.0
+    assert result.condition.value == "INTACT"
+    assert result.routing.value == "NORMAL"
+    assert result.damage is None
 
 
 def test_every_pose_of_the_fixed_sequence_is_used(nominal_profile) -> None:
@@ -104,6 +107,9 @@ def test_the_serialised_contract_is_json_ready(nominal_profile) -> None:
         "confidence",
         "valid",
         "rejection_reason",
+        "condition",
+        "routing",
+        "damage",
     }
 
 
@@ -203,3 +209,25 @@ def test_the_measurement_cycle_never_hides_the_box_between_captures() -> None:
     assert all(name == "set_box_visible" for name, _ in calls[:hides_before_first_capture])
     assert [value for name, value in calls if name == "capture"] == [True, True]
     assert environment.box_attached
+
+
+def test_a_session_profiles_n_boxes_on_the_same_station() -> None:
+    environment = ProfilingEnvironment.for_seed(SEED, attach_box=False)
+    model = environment.model
+    states: list[str] = []
+
+    results = profile_session(SEED, 2, environment=environment, on_state=states.append)
+
+    assert [result.dimensions.object_id for result in results] == ["box-0042", "box-0043"]
+    assert all(result.dimensions.valid for result in results)
+    assert environment.model is model
+    assert environment.object_id == "box-0043"
+    assert states.count("CALIBRATE_BACKGROUND") == 1
+    assert states.index("CLEAR_BOX") > states.index("BOX_1_OF_2")
+    assert states.index("CLEAR_BOX") < states.index("BOX_2_OF_2")
+    assert "BOX_2_OF_2" in states
+
+
+def test_a_session_rejects_a_non_positive_count() -> None:
+    with pytest.raises(ValueError, match="count must be at least 1"):
+        profile_session(SEED, 0)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import cv2
@@ -44,7 +44,10 @@ class ShowcaseCase:
     box_spec: BoxSpec | None = None
 
     def spec(self, config: AppConfig) -> BoxSpec:
-        return self.box_spec or generate_box_spec(self.seed, config)
+        if self.box_spec is not None:
+            return self.box_spec
+        intact = replace(config, damage=replace(config.damage, rate=0.0))
+        return generate_box_spec(self.seed, intact)
 
 
 def contrast_cases(*, base_seed: int) -> tuple[ShowcaseCase, ...]:
@@ -294,6 +297,7 @@ def run_showcase(
     import mujoco.viewer
 
     with mujoco.viewer.launch_passive(environment.model, environment.data) as viewer:
+        viewer.opt.geomgroup[5] = 1
 
         def animate() -> None:
             viewer.sync()

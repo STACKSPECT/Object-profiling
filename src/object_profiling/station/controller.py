@@ -23,12 +23,20 @@ class ScanPoseController:
             on_step=on_step,
         )
 
-    def move_to_qpos(self, target: np.ndarray, *, on_step=None) -> None:
+    def move_to_qpos(
+        self,
+        target: np.ndarray,
+        *,
+        on_step=None,
+        duration_s: float | None = None,
+        timeout_s: float | None = None,
+    ) -> None:
         env = self.environment
         target = np.asarray(target, dtype=np.float64)
         start = env.data.qpos[:6].copy()
         timestep = env.model.opt.timestep
-        steps = max(2, int(env.config.motion.trajectory_duration_s / timestep))
+        duration = env.config.motion.trajectory_duration_s if duration_s is None else duration_s
+        steps = max(2, int(duration / timestep))
         for step in range(steps):
             phase = (step + 1) / steps
             blend = phase * phase * phase * (10.0 + phase * (-15.0 + 6.0 * phase))
@@ -38,7 +46,7 @@ class ScanPoseController:
                 on_step()
 
         env.data.ctrl[:] = target
-        timeout_steps = int(env.config.motion.timeout_s / timestep)
+        timeout_steps = int((env.config.motion.timeout_s if timeout_s is None else timeout_s) / timestep)
         consecutive = 0
         required = max(5, int(0.05 / timestep))
         for _ in range(timeout_steps):

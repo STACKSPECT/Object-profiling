@@ -4,7 +4,7 @@ import argparse
 import json
 import math
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Callable
 
@@ -14,7 +14,7 @@ import numpy as np
 from ..config import AppConfig
 from ..contracts import Dimensions3D
 from ..station.controller import MotionError, ScanPoseController
-from ..station.environment import BoxSpec, ProfilingEnvironment
+from ..station.environment import BoxSpec, ProfilingEnvironment, generate_box_spec
 from ..station.poses import INSPECTION_POSES, SCAN_POSES
 
 
@@ -98,7 +98,7 @@ def _capture_state(
 
 
 def _box_has_contact(environment: ProfilingEnvironment) -> bool:
-    box_geom_id = mujoco.mj_name2id(environment.model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
+    box_geom_id = mujoco.mj_name2id(environment.model, mujoco.mjtObj.mjOBJ_GEOM, "box_collision")
     return any(
         environment.data.contact[index].geom1 == box_geom_id
         or environment.data.contact[index].geom2 == box_geom_id
@@ -207,6 +207,7 @@ def _execute_checkpoint(
             "box_dimensions_m": asdict(environment.box_spec.dimensions_m),
             "box_mass_kg": environment.box_spec.mass_kg,
             "grasp_model": "declared_rigid_equality_weld",
+            "collision_envelope": "axis_aligned_box_not_damaged_mesh",
             "fixed_motion": True,
             "tilt_angle_deg": 0,
             "pickup_perception": False,
@@ -240,6 +241,30 @@ def run_checkpoint(
     )
 
 
+def run_checkpoint_band(*, start: int, count: int, damage_rate: float) -> dict:
+    config = replace(AppConfig(), damage=replace(AppConfig().damage, rate=damage_rate))
+    reports = []
+    for seed in range(start, start + count):
+        spec = generate_box_spec(seed, config)
+        report = run_checkpoint(seed=seed, box_spec=spec)
+        report["damage"] = {
+            "kind": spec.damage.kind.value,
+            "severity_m": spec.damage.severity_m,
+            "location": spec.damage.location,
+        }
+        reports.append(report)
+    successes = sum(1 for report in reports if report["success"])
+    return {
+        "schema_version": 1,
+        "checkpoint": "grasp_damaged_band",
+        "damage_rate": damage_rate,
+        "count": count,
+        "successes": successes,
+        "all_succeeded": successes == count,
+        "reports": reports,
+    }
+
+
 def _write_report(report: dict, output: Path | None) -> None:
     text = json.dumps(report, indent=2, sort_keys=True)
     print(text)
@@ -254,6 +279,7 @@ def _run_visual(seed: int, speed: float) -> dict:
     environment = ProfilingEnvironment.create(NOMINAL_BOX, AppConfig(), attach_box=False)
 
     with mujoco.viewer.launch_passive(environment.model, environment.data) as viewer:
+        viewer.opt.geomgroup[5] = 1
         def animate_step() -> None:
             viewer.sync()
             time.sleep(environment.model.opt.timestep / speed)
@@ -289,7 +315,15 @@ def main() -> int:
         help="Velocidad de reproduccion visual: 1.0 real, 2.0 doble, 0.5 mitad.",
     )
     parser.add_argument("--output", type=Path, help="Ruta opcional para guardar el informe JSON.")
+    parser.add_argument("--start", type=int, default=None, help="Inicio de una banda de seeds con dano.")
+    parser.add_argument("--count", type=int, default=1, help="Numero de seeds de la banda.")
+    parser.add_argument("--damage-rate", type=float, default=0.0)
     args = parser.parse_args()
+
+    if args.start is not None:
+        report = run_checkpoint_band(start=args.start, count=args.count, damage_rate=args.damage_rate)
+        _write_report(report, args.output)
+        return 0 if report["all_succeeded"] else 1
 
     if args.visual:
         report = _run_visual(args.seed, args.speed)

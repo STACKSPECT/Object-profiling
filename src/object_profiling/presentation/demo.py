@@ -8,9 +8,9 @@ import cv2
 import numpy as np
 
 from ..config import AppConfig
-from ..contracts import ObjectDimensions
+from ..contracts import ObjectDimensions, RoutingHint
 from ..station.environment import ProfilingEnvironment
-from ..station.pipeline import ProfilingResult, profile
+from ..station.pipeline import ProfilingResult, profile_session
 from .panels import (
     ACCENT,
     EVALUATION_INK,
@@ -52,6 +52,9 @@ def _solution_lines(result: ObjectDimensions) -> list[Line]:
         lines.append((f"motivo {result.rejection_reason}", WARNING))
         lines.append(("", INK))
         lines.append(("", INK))
+    decision = "DESCARTADA" if result.routing is RoutingHint.ERROR_ZONE else "ACEPTADA"
+    decision_color = WARNING if result.routing is RoutingHint.ERROR_ZONE else ACCENT
+    lines.append((f"{decision}  {result.condition.value}  {result.routing.value}", decision_color))
     lines.append((f"{len(result.views_used)} vistas  marco {result.frame_id}", INK))
     return lines
 
@@ -69,11 +72,14 @@ def _evaluation_lines(result: ObjectDimensions, truth_m: np.ndarray) -> list[Lin
 
 
 def _console_row(result: ObjectDimensions, truth_m: np.ndarray) -> str:
+    decision = "DESCARTADA" if result.routing is RoutingHint.ERROR_ZONE else "ACEPTADA"
+    prefix = f"{result.object_id}  {decision}  {result.condition.value}"
     if not result.valid or result.dimensions_m is None:
-        return f"RECHAZADO {result.rejection_reason}"
+        return f"{prefix}  RECHAZADO {result.rejection_reason}"
     published = result.catalogue_dimensions() or result.dimensions_m
     error = (result.dimensions_m.as_array() - truth_m) * 1000.0
     return (
+        f"{prefix}  "
         f"medido_inicial {_format_mm(result.dimensions_m.as_array())}  "
         f"medido {_format_mm(published.as_array())}  "
         f"real {_format_mm(truth_m)}  "
@@ -147,44 +153,62 @@ def run_demo(
     *,
     visual: bool,
     speed: float,
+    count: int = 1,
     config: AppConfig | None = None,
 ) -> tuple[ProfilingResult, np.ndarray]:
-    """Ejecuta la demo. Visual y headless comparten el mismo `profile()`."""
+    """Ejecuta la demo. Visual y headless recorren el mismo bucle de estacion."""
+
+    if count < 1:
+        raise ValueError("count must be at least 1")
 
     config = config or AppConfig()
     environment = ProfilingEnvironment.for_seed(seed, config, attach_box=False)
-    # El ground truth se lee aqui, en la capa de presentacion, y solo alimenta el
-    # panel de evaluacion.
-    truth_m = environment.box_spec.dimensions_m.as_array()
     states: list[str] = []
+    captured: list[tuple[ProfilingResult, np.ndarray]] = []
 
     def announce(name: str) -> None:
         states.append(name)
         print(f"[demo] {name}")
 
-    if not visual:
-        result = profile(environment, seed=seed, config=config, on_state=announce)
+    def capture(result: ProfilingResult) -> None:
+        # El ground truth se lee aqui, en la capa de presentacion, y solo alimenta
+        # el panel de evaluacion.
+        truth_m = environment.box_spec.dimensions_m.as_array()
         print(f"[demo] {_console_row(result.dimensions, truth_m)}")
-        return result, compose_panels(result, truth_m, states[-1] if states else "DONE")
+        captured.append((result, truth_m.copy()))
 
-    import mujoco.viewer
-
-    with mujoco.viewer.launch_passive(environment.model, environment.data) as viewer:
-
-        def animate() -> None:
-            viewer.sync()
-            time.sleep(environment.model.opt.timestep / speed)
-
-        def announce_visual(name: str) -> None:
-            announce(name)
-            viewer.sync()
-            time.sleep(0.5 / speed)
-
-        result = profile(
-            environment, seed=seed, config=config, on_state=announce_visual, on_step=animate
+    def run_session(on_state, on_step) -> None:
+        profile_session(
+            seed,
+            count,
+            config=config,
+            environment=environment,
+            on_state=on_state,
+            on_step=on_step,
+            on_result=capture,
         )
-        announce_visual("DONE")
-    print(f"[demo] {_console_row(result.dimensions, truth_m)}")
+
+    if not visual:
+        run_session(announce, None)
+    else:
+        import mujoco.viewer
+
+        with mujoco.viewer.launch_passive(environment.model, environment.data) as viewer:
+            viewer.opt.geomgroup[5] = 1
+
+            def animate() -> None:
+                viewer.sync()
+                time.sleep(environment.model.opt.timestep / speed)
+
+            def announce_visual(name: str) -> None:
+                announce(name)
+                viewer.sync()
+                time.sleep(0.5 / speed)
+
+            run_session(announce_visual, animate)
+            announce_visual("DONE")
+
+    result, truth_m = captured[-1]
     return result, compose_panels(result, truth_m, states[-1] if states else "DONE")
 
 
@@ -195,7 +219,13 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--visual", action="store_true", help="Abre el visor de MuJoCo. Requiere mjpython.")
     mode.add_argument("--headless", action="store_true", help="Sin ventana. Modo por defecto.")
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=int, default=42, help="Seed de la primera caja. Las siguientes usan seed+i.")
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=1,
+        help="Numero de cajas del bucle. Cada una se mide, se acepta o se descarta, y se retira.",
+    )
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument(
         "--output",
@@ -204,8 +234,10 @@ def main() -> int:
         help="Ruta del mosaico PNG. Por defecto artifacts/demo/seed-NNNN.png.",
     )
     args = parser.parse_args()
+    if args.count < 1:
+        parser.error("--count must be at least 1")
 
-    result, panels = run_demo(args.seed, visual=args.visual, speed=args.speed)
+    result, panels = run_demo(args.seed, visual=args.visual, speed=args.speed, count=args.count)
     output = args.output or Path("artifacts/demo") / f"seed-{args.seed:04d}.png"
     output.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(output), panels)

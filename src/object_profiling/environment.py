@@ -9,6 +9,11 @@ from .config import AppConfig, SCENE_PATH
 from .contracts import BoxSpec, Dimensions3D
 
 
+# Detras de `scan_rgbd_cam` y sobre el suelo: ni entra en el encuadre ni
+# penetra el plano del suelo mientras la estacion esta vacia.
+BOX_PARKING_POSITION_M = np.asarray([2.5, 4.5, 0.5])
+
+
 def _matrix_to_quaternion(matrix: np.ndarray) -> np.ndarray:
     quat = np.empty(4, dtype=np.float64)
     mujoco.mju_mat2Quat(quat, np.asarray(matrix, dtype=np.float64).reshape(9))
@@ -20,6 +25,8 @@ def _set_free_joint_pose(model: mujoco.MjModel, data: mujoco.MjData, joint_name:
     address = model.jnt_qposadr[joint_id]
     data.qpos[address : address + 3] = position
     data.qpos[address + 3 : address + 7] = _matrix_to_quaternion(rotation)
+    dof_address = model.jnt_dofadr[joint_id]
+    data.qvel[dof_address : dof_address + 6] = 0.0
 
 
 def _set_weld_from_current_pose(model: mujoco.MjModel, data: mujoco.MjData, equality_name: str) -> None:
@@ -62,6 +69,7 @@ class ProfilingEnvironment:
     box_spec: BoxSpec
     model: mujoco.MjModel
     data: mujoco.MjData
+    box_visible: bool = True
 
     @classmethod
     def create(
@@ -113,6 +121,10 @@ class ProfilingEnvironment:
         self.model.geom_size[geom_id] = dimensions.as_array() / 2.0
         self.model.geom_rgba[geom_id] = self.box_spec.rgba
         self.model.body_mass[body_id] = self.box_spec.mass_kg
+        # Deshace un posible aparcamiento previo de la caja.
+        self.model.geom_contype[geom_id] = 1
+        self.model.geom_conaffinity[geom_id] = 1
+        self.box_visible = True
         length, width, height = dimensions.as_array()
         self.model.body_inertia[body_id] = self.box_spec.mass_kg / 12.0 * np.asarray(
             [width * width + height * height, length * length + height * height, length * length + width * width]
@@ -164,13 +176,47 @@ class ProfilingEnvironment:
         return bool(self.data.eq_active[equality_id])
 
     def set_box_visible(self, visible: bool) -> None:
+        """Retira o restituye la caja como preparacion de escena.
+
+        Ocultarla deja la estacion como estaria sin paquete: detras de
+        `scan_rgbd_cam` y sin contactos. Aparcarla bajo el suelo la hacia
+        penetrar el plano y salir despedida hasta alturas todavia dentro del
+        plano lejano del render.
+
+        Llamarla con `False` de nuevo vuelve a aparcarla. La caja aparcada cae
+        libremente porque `body_gravcomp` no actua sobre un freejoint, asi que
+        reaparcarla antes de cada captura de fondo la mantiene en un sitio
+        conocido.
+        """
+
+        box_geom_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "box_geom")
         equality_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_EQUALITY, "gripper_to_box")
         if visible:
+            self.model.geom_contype[box_geom_id] = 1
+            self.model.geom_conaffinity[box_geom_id] = 1
             self._place_box()
             self.attach_box()
         else:
             self.data.eq_active[equality_id] = 0
-            _set_free_joint_pose(self.model, self.data, "box_free", np.asarray([0.0, 0.0, -3.0]), np.eye(3))
+            self.model.geom_contype[box_geom_id] = 0
+            self.model.geom_conaffinity[box_geom_id] = 0
+            _set_free_joint_pose(self.model, self.data, "box_free", BOX_PARKING_POSITION_M, np.eye(3))
+        self.box_visible = visible
+        mujoco.mj_forward(self.model, self.data)
+
+    def set_joint_positions(self, joint_positions_rad: np.ndarray) -> None:
+        """Coloca el brazo en una configuracion articular medida.
+
+        El terminal es un cuerpo libre unido por weld, y un weld solo se
+        resuelve al integrar. Tras teletransportar el brazo hay que recolocarlo
+        explicitamente para que la escena sea coherente sin simular.
+        """
+
+        self.data.qpos[:6] = np.asarray(joint_positions_rad, dtype=np.float64)
+        self.data.qvel[:6] = 0.0
+        self.data.ctrl[:] = np.asarray(joint_positions_rad, dtype=np.float64)
+        mujoco.mj_forward(self.model, self.data)
+        self._place_and_attach_gripper()
         mujoco.mj_forward(self.model, self.data)
 
     def body_to_world(self, body_name: str) -> np.ndarray:

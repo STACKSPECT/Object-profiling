@@ -15,7 +15,7 @@ from ..config import AppConfig
 from ..contracts import Dimensions3D
 from ..station.controller import MotionError, ScanPoseController
 from ..station.environment import BoxSpec, ProfilingEnvironment
-from ..station.poses import RETURN_POSE, SCAN_POSES
+from ..station.poses import INSPECTION_POSES, SCAN_POSES
 
 
 NOMINAL_BOX = BoxSpec(
@@ -162,7 +162,7 @@ def _execute_checkpoint(
     commands = (
         ("LIFT", SCAN_POSES[0], True),
         ("ROTATE_YAW_90", SCAN_POSES[1], False),
-        ("RETURN_VERTICAL", RETURN_POSE, False),
+        ("ROTATE_YAW_180", INSPECTION_POSES[0], False),
     )
 
     try:
@@ -183,7 +183,7 @@ def _execute_checkpoint(
     max_rotation_drift = max((state.rotation_drift_deg for state in states), default=float("inf"))
     max_joint_error = max((state.max_joint_error_rad for state in states), default=float("inf"))
     lifted_distance = final_box_z - initial_box_z
-    expected_sequence = [pose.name for pose in SCAN_POSES] + [RETURN_POSE.name]
+    expected_sequence = [pose.name for pose in SCAN_POSES] + [pose.name for pose in INSPECTION_POSES]
     completed_sequence = [state.name for state in states] == expected_sequence
     unexpected_contact_samples = sum(state.unexpected_box_contact_samples for state in states)
     success = bool(
@@ -200,7 +200,7 @@ def _execute_checkpoint(
     return {
         "schema_version": 2,
         "seed": seed,
-        "checkpoint": "grasp_lift_yaw_tilt_return",
+        "checkpoint": "grasp_lift_yaw_inspection",
         "success": success,
         "failure_reason": failure_reason if failure_reason else (None if success else "AUDIT_THRESHOLD_FAILED"),
         "assumptions": {

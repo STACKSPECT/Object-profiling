@@ -32,12 +32,14 @@ class ScanPose:
 
 SCAN_YAW_0 = ScanPose("SCAN_YAW_0", 0, 0)
 SCAN_YAW_90 = ScanPose("SCAN_YAW_90", 90, 0)
-# Conservada para ablacion EXP-008. Fuera del ciclo de produccion de esta rama.
+SCAN_YAW_180 = ScanPose("SCAN_YAW_180", 180, 0)
+# Conservada para ablacion EXP-008. Fuera del ciclo de medicion.
 SCAN_TILT_35 = ScanPose("SCAN_TILT_35", 0, 35)
 
+# Vistas que alimentan measure(). La inspeccion de defectos no entra aqui.
 SCAN_POSES: tuple[ScanPose, ...] = (SCAN_YAW_0, SCAN_YAW_90)
-
-RETURN_POSE = ScanPose("RETURNED_VERTICAL", 0, 0)
+# Segundo +90° en el mismo sentido, para ver la cuarta lateral. No es medida.
+INSPECTION_POSES: tuple[ScanPose, ...] = (SCAN_YAW_180,)
 
 
 def pose_by_name(name: str) -> ScanPose:

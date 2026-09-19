@@ -51,6 +51,23 @@ def test_every_pose_of_the_fixed_sequence_is_used(nominal_profile) -> None:
     assert len(nominal_profile.views) == 2
 
 
+def test_the_inspection_yaw_is_not_fed_to_the_estimator() -> None:
+    environment = ProfilingEnvironment.for_seed(SEED, attach_box=False)
+    sensor = RGBDSensor(environment)
+    try:
+        cycle = run_fixed_scan(environment, sensor)
+    finally:
+        sensor.close()
+
+    assert [observation.pose_name for observation in cycle.observations] == [
+        "SCAN_YAW_0",
+        "SCAN_YAW_90",
+    ]
+    assert [observation.pose_name for observation in cycle.inspection_observations] == [
+        "SCAN_YAW_180",
+    ]
+
+
 def test_the_profile_is_close_to_the_ground_truth(nominal_profile) -> None:
     """La comparacion es evaluacion; el estimador no la ve."""
 

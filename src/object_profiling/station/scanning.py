@@ -9,13 +9,27 @@ from .backgrounds import capture_pose_backgrounds
 from .camera import RGBDSensor
 from .controller import ScanPoseController
 from .environment import ProfilingEnvironment
-from .poses import RETURN_POSE, SCAN_POSES, ScanPose
+from .poses import INSPECTION_POSES, SCAN_POSES, ScanPose
 
 
 @dataclass(frozen=True)
 class ScanCycle:
     backgrounds: BackgroundSet
     observations: tuple[CameraObservation, ...]
+    # RGB-D de inspeccion (yaw 180). No entra en measure().
+    inspection_observations: tuple[CameraObservation, ...] = ()
+
+
+def _unique_poses(*groups: tuple[ScanPose, ...]) -> tuple[ScanPose, ...]:
+    seen: set[str] = set()
+    ordered: list[ScanPose] = []
+    for group in groups:
+        for pose in group:
+            if pose.name in seen:
+                continue
+            seen.add(pose.name)
+            ordered.append(pose)
+    return tuple(ordered)
 
 
 def calibrate_backgrounds(
@@ -41,24 +55,26 @@ def run_fixed_scan(
     sensor: RGBDSensor,
     *,
     poses: tuple[ScanPose, ...] = SCAN_POSES,
+    finish_poses: tuple[ScanPose, ...] | None = None,
     backgrounds: BackgroundSet | None = None,
     on_state: Callable[[str], None] | None = None,
     on_step: Callable[[], None] | None = None,
     on_capture: Callable[[ScanPose, CameraObservation, BackgroundSet], None] | None = None,
 ) -> ScanCycle:
-    """Ejecuta el ciclo fijo de agarre, escaneo y retorno.
+    """Agarre, capturas de medida y giro de inspeccion en el mismo sentido.
 
-    La secuencia no depende de lo que se observe: todas las cajas recorren las
-    mismas poses. Si se pasan fondos ya calibrados, el ciclo no retira la caja en
-    ningun momento; si no, los calibra antes de agarrar.
+    `poses` alimenta measure(). `finish_poses` (por defecto yaw 180) se captura
+    aparte para defectos y no se mezcla con las observaciones de medida.
     """
 
     report = on_state or (lambda _name: None)
     controller = ScanPoseController(environment)
+    inspection_poses = INSPECTION_POSES if finish_poses is None else finish_poses
+    background_poses = _unique_poses(poses, inspection_poses)
 
     if backgrounds is None:
         report("CALIBRATE_BACKGROUND")
-        backgrounds = calibrate_backgrounds(environment, sensor, poses=poses)
+        backgrounds = calibrate_backgrounds(environment, sensor, poses=background_poses)
 
     report("PRESENT_BOX")
     environment.reset(attach_box=False)
@@ -75,6 +91,11 @@ def run_fixed_scan(
         if on_capture is not None:
             on_capture(pose, observation, backgrounds)
 
-    report(RETURN_POSE.name)
-    controller.move_to_qpos(RETURN_POSE.target_qpos(environment.config.motion), on_step=on_step)
-    return ScanCycle(backgrounds, tuple(observations))
+    inspection_observations: list[CameraObservation] = []
+    for pose in inspection_poses:
+        report(pose.name)
+        controller.move_to_qpos(pose.target_qpos(environment.config.motion), on_step=on_step)
+        observation = sensor.capture(pose.name, yaw_deg=pose.yaw_deg, tilt_deg=pose.tilt_deg)
+        inspection_observations.append(observation)
+
+    return ScanCycle(backgrounds, tuple(observations), tuple(inspection_observations))

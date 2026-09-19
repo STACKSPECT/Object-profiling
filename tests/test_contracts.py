@@ -14,13 +14,14 @@ from object_profiling.contracts import (
     snap_to_catalogue,
 )
 from object_profiling.station.environment import generate_box_spec
-from object_profiling.station.poses import RETURN_POSE, SCAN_POSES, SCAN_TILT_35, pose_by_name
+from object_profiling.station.poses import INSPECTION_POSES, SCAN_POSES, SCAN_TILT_35, pose_by_name
 
 
 def test_fixed_scan_sequence_is_two_vertical_yaws() -> None:
     assert [pose.name for pose in SCAN_POSES] == ["SCAN_YAW_0", "SCAN_YAW_90"]
     assert [(pose.yaw_deg, pose.tilt_deg) for pose in SCAN_POSES] == [(0, 0), (90, 0)]
-    assert RETURN_POSE.name == "RETURNED_VERTICAL"
+    assert [pose.name for pose in INSPECTION_POSES] == ["SCAN_YAW_180"]
+    assert INSPECTION_POSES[0].yaw_deg == 180
 
 
 def test_scan_poses_resolve_to_configured_joint_targets() -> None:
@@ -28,6 +29,7 @@ def test_scan_poses_resolve_to_configured_joint_targets() -> None:
 
     assert SCAN_POSES[0].target_qpos(motion) == pytest.approx(motion.target(0))
     assert SCAN_POSES[1].target_qpos(motion) == pytest.approx(motion.target(90))
+    assert INSPECTION_POSES[0].target_qpos(motion) == pytest.approx(motion.target(180))
 
 
 def test_pose_lookup_rejects_unknown_name() -> None:

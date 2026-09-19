@@ -20,17 +20,25 @@ CALIBRATE_BACKGROUND
 -> ATTACH_SUCTION
 -> SCAN_YAW_0
 -> SCAN_YAW_90
--> RETURNED_VERTICAL
+-> SCAN_YAW_180
 -> ESTIMATE
 -> VALIDATE
 -> PROFILE_READY / rechazo con motivo
 ```
 
-La trayectoria es fija: no elige vistas según el resultado. Todas las cajas
-recorren las mismas dos poses (`SCAN_YAW_0` y `SCAN_YAW_90`; EXP-008).
+La trayectoria es fija: no elige vistas según el resultado. La medida usa
+`SCAN_YAW_0` y `SCAN_YAW_90` (EXP-008). `SCAN_YAW_180` es el segundo giro en el
+mismo sentido, para inspección de caras; no entra en `measure()`. Cámara RGB-D
+fija por debajo de la caja (EXP-009).
 
-Medido sobre 300 escenas (seeds 1000–1099 y 5000–5199), ciclo de dos yaws,
-entorno ideal y sin ruido:
+La tabla de 300 seeds siguiente es EXP-008 (cámara **alta**). Con la cámara
+baja de esta rama, 20 seeds (1000–1019): MAE L/W/H 0,016 / 0,195 / 0,102 mm,
+20/20 válidos y snap; detalle en
+[EXP-009](docs/findings/EXP-009-camara-baja-yaw-180.md). Aún no se ha repetido
+el protocolo de 300 seeds.
+
+Medido sobre 300 escenas (seeds 1000–1099 y 5000–5199), ciclo de dos yaws y
+cámara alta, entorno ideal y sin ruido:
 
 | Eje | MAE | p95 | Máximo |
 |---|---:|---:|---:|
@@ -176,3 +184,4 @@ python -m pytest -p no:cacheprovider
 - [EXP-006: estimación del cuboide](docs/findings/EXP-006-estimacion-cuboide.md)
 - [EXP-007: benchmark de dimensiones variables](docs/findings/EXP-007-benchmark-dimensiones-variables.md)
 - [EXP-008: ablación de poses de escaneo](docs/findings/EXP-008-ablacion-poses-escaneo.md)
+- [EXP-009: cámara baja para medir con dos vistas; yaw 180 solo defectos](docs/findings/EXP-009-camara-baja-yaw-180.md)

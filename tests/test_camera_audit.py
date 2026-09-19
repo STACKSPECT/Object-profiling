@@ -15,7 +15,7 @@ def test_fixed_camera_configuration() -> None:
     environment = ProfilingEnvironment.create(NOMINAL_BOX, attach_box=False)
     camera_id = mujoco.mj_name2id(environment.model, mujoco.mjtObj.mjOBJ_CAMERA, "scan_rgbd_cam")
 
-    assert environment.data.cam_xpos[camera_id] == pytest.approx((0.5566, 1.22835, 0.91975))
+    assert environment.data.cam_xpos[camera_id] == pytest.approx((0.5566, 1.22835, 0.38025))
     assert environment.model.cam_fovy[camera_id] == pytest.approx(50.0)
     assert (environment.config.sensor.width, environment.config.sensor.height) == (640, 480)
 

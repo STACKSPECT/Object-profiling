@@ -66,7 +66,9 @@ def evaluate_episode(environment: ProfilingEnvironment, config: AppConfig) -> di
 
     sensor = RGBDSensor(environment)
     try:
-        cycle = run_fixed_scan(environment, sensor, poses=(*SCAN_POSES, SCAN_TILT_35))
+        cycle = run_fixed_scan(
+            environment, sensor, poses=(*SCAN_POSES, SCAN_TILT_35), finish_poses=()
+        )
     finally:
         sensor.close()
     truth_m = environment.box_spec.dimensions_m.as_array()
@@ -130,7 +132,7 @@ def time_cycle(environment: ProfilingEnvironment, poses: tuple[ScanPose, ...]) -
     started = time.perf_counter()
     simulation_started = float(environment.data.time)
     try:
-        run_fixed_scan(environment, sensor, poses=poses)
+        run_fixed_scan(environment, sensor, poses=poses, finish_poses=())
     finally:
         sensor.close()
     return {

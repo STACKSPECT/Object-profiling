@@ -12,7 +12,7 @@ import numpy as np
 from ...station.camera import RGBDSensor
 from ...station.controller import ScanPoseController
 from ...station.environment import BoxSpec, ProfilingEnvironment
-from ...station.poses import SCAN_POSES, RETURN_POSE
+from ...station.poses import INSPECTION_POSES, SCAN_POSES
 from ..checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 
 
@@ -176,7 +176,7 @@ def audit_box_camera(box_spec: BoxSpec, *, artifact_directory: Path | None = Non
                     mask,
                 )
 
-        controller.move_to_qpos(RETURN_POSE.target_qpos(environment.config.motion))
+        controller.move_to_qpos(INSPECTION_POSES[0].target_qpos(environment.config.motion))
     finally:
         sensor.close()
         evaluator.close()

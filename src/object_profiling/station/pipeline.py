@@ -74,7 +74,8 @@ def profile(
 ) -> ProfilingResult:
     """Ejecuta el ciclo fijo y devuelve `ObjectDimensions`.
 
-    La trayectoria no depende del resultado: las poses fijas se recorren siempre.
+    La trayectoria no depende del resultado: las dos poses de medida se recorren
+    siempre; el yaw 180 de inspeccion no entra en `measure()`.
     Recibe el episodio ya construido y solo su etiqueta, nunca su geometria.
     """
 

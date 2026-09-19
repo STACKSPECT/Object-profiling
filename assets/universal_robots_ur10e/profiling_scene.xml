@@ -65,7 +65,13 @@
   </worldbody>
 
   <equality>
-    <weld name="wrist_to_gripper" body1="wrist_3_link" body2="profiling_gripper" active="false" solref="0.01 1"/>
-    <weld name="gripper_to_box" body1="profiling_gripper" body2="profiling_box" active="false" solref="0.01 1"/>
+    <!-- El terminal va atornillado a la brida de la muneca. Con solref="0.01 1"
+         cedia 2,1 grados en SCAN_TILT_35 con una caja de 5 kg, lo que desplazaba
+         la nube de esa vista casi 9 mm respecto a las otras dos. La constante de
+         tiempo baja al doble del timestep, el minimo estable. -->
+    <weld name="wrist_to_gripper" body1="wrist_3_link" body2="profiling_gripper" active="false"
+          solref="0.004 1" solimp="0.99 0.9999 0.001 0.5 2"/>
+    <weld name="gripper_to_box" body1="profiling_gripper" body2="profiling_box" active="false"
+          solref="0.004 1" solimp="0.99 0.9999 0.001 0.5 2"/>
   </equality>
 </mujoco>

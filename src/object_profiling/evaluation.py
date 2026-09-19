@@ -27,6 +27,21 @@ class GroundTruthMasks:
 
 
 @dataclass(frozen=True)
+class RegistrationMetrics:
+    """Error de registro medido contra la pose y dimensiones reales.
+
+    Combina el error de retroproyeccion, el de la cadena camara-mundo-terminal y
+    el de la propia segmentacion. Es la vara de medir del registro, no una
+    entrada del estimador.
+    """
+
+    points: int
+    mean_surface_distance_m: float
+    p95_surface_distance_m: float
+    maximum_surface_distance_m: float
+
+
+@dataclass(frozen=True)
 class SegmentationMetrics:
     predicted_pixels: int
     ground_truth_pixels: int
@@ -67,6 +82,34 @@ class GroundTruthRenderer:
             box=segmentation == self.box_geom_id,
             terminal=np.isin(segmentation, self.terminal_geom_ids),
         )
+
+
+def box_to_tool(environment: ProfilingEnvironment) -> np.ndarray:
+    """Pose real de la caja en el marco del terminal. Solo evaluacion."""
+
+    return np.linalg.inv(environment.tool_to_world()) @ environment.body_to_world("profiling_box")
+
+
+def evaluate_registration(
+    points_tool_m: np.ndarray,
+    box_to_tool_transform: np.ndarray,
+    dimensions_m: np.ndarray,
+) -> RegistrationMetrics:
+    """Distancia de cada punto observado a la superficie real de la caja."""
+
+    rotation = box_to_tool_transform[:3, :3]
+    translation = box_to_tool_transform[:3, 3]
+    points_box = (points_tool_m - translation) @ rotation
+    offset = np.abs(points_box) - dimensions_m / 2.0
+    outside = np.linalg.norm(np.maximum(offset, 0.0), axis=1)
+    inside = np.minimum(np.max(offset, axis=1), 0.0)
+    distance = np.abs(outside + inside)
+    return RegistrationMetrics(
+        points=int(distance.size),
+        mean_surface_distance_m=float(np.mean(distance)),
+        p95_surface_distance_m=float(np.percentile(distance, 95)),
+        maximum_surface_distance_m=float(np.max(distance)),
+    )
 
 
 def evaluate_segmentation(predicted: np.ndarray, truth: GroundTruthMasks) -> SegmentationMetrics:

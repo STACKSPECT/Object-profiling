@@ -30,25 +30,40 @@ class SensorConfig:
     # descartar restos que no puedan ser la caja, y la mascara util se erosiona.
     min_component_pixels: int = 2_000
     border_margin_px: int = 3
-    # EXP-003: un pixel de silueta puede errar 97,7 mm frente a 0,03 mm en el
-    # interior. Se retira ese anillo antes de retroproyectar.
-    mask_erosion_px: int = 2
+    # EXP-006: la silueta es la unica fuente de los extremos que ninguna cara
+    # observada define, asi que erosionarla los borraba. Se conserva completa.
+    mask_erosion_px: int = 0
     scan_center_world_m: tuple[float, float, float] = (-0.174, 0.735, 0.650)
     # Holgura del volumen de recorte sobre el tamano maximo de caja declarado.
     tool_volume_margin_m: float = 0.04
-    # Separacion entre el marco del terminal y la cara superior de la caja.
+    # Separacion entre el marco del terminal y el plano de contacto de las copas,
+    # donde se apoya la cara superior de la caja. Es geometria del terminal.
     tool_to_box_offset_m: float = 0.089
+    # Holgura por encima de ese plano. Las copas ocupan z entre 0,065 y 0,089 en
+    # el marco del terminal: un margen generoso los mete en la nube y estira la
+    # altura hasta 30 mm.
+    cup_plane_margin_m: float = 0.002
 
 
 @dataclass(frozen=True)
 class EstimatorConfig:
-    percentile_low: float = 0.5
-    percentile_high: float = 99.5
+    # EXP-006: recortar medio punto porcentual por extremo costaba hasta 11 mm
+    # de anchura, porque los extremos que solo define la silueta tienen poca
+    # densidad. Con 0,05 el error queda por debajo del milimetro.
+    percentile_low: float = 0.05
+    percentile_high: float = 99.95
     bootstrap_samples: int = 24
     bootstrap_point_cap: int = 12_000
     minimum_points: int = 800
+    minimum_views: int = 3
+    # Cobertura: cuantos puntos deben apoyar cada extremo dentro de la loncha.
+    # El extremo peor medido sobre el rango de cajas aporta 121 puntos.
+    coverage_slab_m: float = 0.002
+    minimum_face_support_points: int = 50
+    # Residuo p95 por vista medido sobre el rango de cajas: 0,805 mm en el peor
+    # caso. El umbral deja margen y detecta un desplazamiento de 10 mm.
+    max_view_plane_residual_m: float = 0.003
     max_uncertainty_m: float = 0.012
-    max_view_height_delta_m: float = 0.015
     cuboid_residual_scale_m: float = 0.012
 
 

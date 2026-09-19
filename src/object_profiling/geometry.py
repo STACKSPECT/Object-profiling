@@ -2,89 +2,239 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import cv2
 import numpy as np
 
 from .config import AppConfig
-from .contracts import Dimensions3D, RejectionReason, ScanView
+from .contracts import Dimensions3D, Extent3D, RejectionReason
+from .registration import FusedCloud, axis_aligned_extremes_m, distance_to_box_surface_m
 
 
 @dataclass(frozen=True)
-class GeometricEstimate:
+class FaceCoverage:
+    """Soporte observado en cada extremo de cada eje del terminal.
+
+    Un percentil no distingue un extremo bien visto de uno que solo aparece en
+    un punado de puntos de silueta. Esta cuenta si.
+    """
+
+    slab_m: float
+    minimum_support: int
+    lower_support: tuple[int, int, int]
+    upper_support: tuple[int, int, int]
+
+    @property
+    def weakest_support(self) -> int:
+        return min(min(self.lower_support), min(self.upper_support))
+
+    @property
+    def satisfied(self) -> bool:
+        return self.weakest_support >= self.minimum_support
+
+
+@dataclass(frozen=True)
+class CuboidEstimate:
     dimensions: Dimensions3D
-    uncertainty: Dimensions3D
+    uncertainty: Extent3D
     confidence: float
-    residual_m: float
-    view_height_delta_m: float
+    lower_m: np.ndarray
+    upper_m: np.ndarray
+    points: int
+    residual_p95_m: float
+    view_plane_residual_m: float
+    view_extent_disagreement_m: np.ndarray
+    coverage: FaceCoverage
 
 
-def _robust_dimensions(points: np.ndarray, low: float, high: float) -> tuple[Dimensions3D, float]:
-    if points.shape[0] < 4:
-        raise ValueError("not enough points")
-    xy = points[:, :2].astype(np.float32)
-    hull = cv2.convexHull(xy)
-    rectangle = cv2.minAreaRect(hull)
-    angle = np.deg2rad(rectangle[2])
-    axis_x = np.asarray([np.cos(angle), np.sin(angle)])
-    axis_y = np.asarray([-np.sin(angle), np.cos(angle)])
-    projected_x, projected_y = xy @ axis_x, xy @ axis_y
-    x0, x1 = np.percentile(projected_x, [low, high])
-    y0, y1 = np.percentile(projected_y, [low, high])
-    z0, z1 = np.percentile(points[:, 2], [low, high])
-    horizontal = sorted([float(x1 - x0), float(y1 - y0)], reverse=True)
-    dimensions = Dimensions3D(horizontal[0], horizontal[1], float(z1 - z0))
-    dx = np.minimum(np.abs(projected_x - x0), np.abs(projected_x - x1))
-    dy = np.minimum(np.abs(projected_y - y0), np.abs(projected_y - y1))
-    dz = np.minimum(np.abs(points[:, 2] - z0), np.abs(points[:, 2] - z1))
-    residual = float(np.median(np.minimum(np.minimum(dx, dy), dz)))
-    return dimensions, residual
+def _dimensions_from_extent(extent_m: np.ndarray) -> Dimensions3D:
+    """Aplica la convencion length >= width sobre los dos ejes horizontales.
+
+    La altura es el eje Z del terminal, del que cuelga la caja.
+    """
+
+    horizontal = sorted((float(extent_m[0]), float(extent_m[1])), reverse=True)
+    return Dimensions3D(horizontal[0], horizontal[1], float(extent_m[2]))
 
 
-def _bootstrap_uncertainty(points: np.ndarray, config: AppConfig, seed: int) -> Dimensions3D:
+def face_coverage(
+    points_m: np.ndarray,
+    lower_m: np.ndarray,
+    upper_m: np.ndarray,
+    config: AppConfig,
+) -> FaceCoverage:
+    estimator = config.estimator
+    slab = estimator.coverage_slab_m
+    lower_support = tuple(
+        int(np.count_nonzero(points_m[:, axis] <= lower_m[axis] + slab)) for axis in range(3)
+    )
+    upper_support = tuple(
+        int(np.count_nonzero(points_m[:, axis] >= upper_m[axis] - slab)) for axis in range(3)
+    )
+    return FaceCoverage(
+        slab_m=slab,
+        minimum_support=estimator.minimum_face_support_points,
+        lower_support=lower_support,
+        upper_support=upper_support,
+    )
+
+
+def _bootstrap_uncertainty_m(points_m: np.ndarray, config: AppConfig, seed: int) -> np.ndarray:
+    """Dispersion del extremo robusto al remuestrear la nube."""
+
     estimator = config.estimator
     rng = np.random.default_rng(seed)
-    capped = points
-    if points.shape[0] > estimator.bootstrap_point_cap:
-        capped = points[rng.choice(points.shape[0], estimator.bootstrap_point_cap, replace=False)]
-    estimates = []
-    sample_size = max(500, int(capped.shape[0] * 0.75))
-    for _ in range(estimator.bootstrap_samples):
-        sample = capped[rng.choice(capped.shape[0], sample_size, replace=True)]
-        dimensions, _ = _robust_dimensions(sample, estimator.percentile_low, estimator.percentile_high)
-        estimates.append(dimensions.as_array())
-    values = np.asarray(estimates)
-    spreads = np.percentile(values, 97.5, axis=0) - np.percentile(values, 2.5, axis=0)
-    half_width = np.maximum(spreads / 2.0, 0.0005)
-    return Dimensions3D(float(half_width[0]), float(half_width[1]), float(half_width[2]))
+    sample_pool = points_m
+    if points_m.shape[0] > estimator.bootstrap_point_cap:
+        indices = rng.choice(points_m.shape[0], estimator.bootstrap_point_cap, replace=False)
+        sample_pool = points_m[indices]
+
+    extents = np.empty((estimator.bootstrap_samples, 3))
+    for index in range(estimator.bootstrap_samples):
+        resampled = sample_pool[rng.choice(sample_pool.shape[0], sample_pool.shape[0], replace=True)]
+        lower, upper = axis_aligned_extremes_m(
+            resampled, estimator.percentile_low, estimator.percentile_high
+        )
+        extents[index] = upper - lower
+    spread = np.percentile(extents, 97.5, axis=0) - np.percentile(extents, 2.5, axis=0)
+    return spread / 2.0
 
 
-def estimate_geometry(views: list[ScanView], config: AppConfig, seed: int) -> tuple[GeometricEstimate | None, RejectionReason | None]:
-    if len(views) < 2:
+def combine_uncertainty_m(
+    bootstrap_m: np.ndarray,
+    lateral_pitch_m: float,
+    residual_p95_m: float,
+    view_plane_residual_m: float,
+    coverage: FaceCoverage,
+) -> np.ndarray:
+    """Suma en cuadratura las fuentes de incertidumbre de cada eje.
+
+    - `bootstrap_m`: dispersion estadistica al remuestrear.
+    - `lateral_pitch_m`: resolucion lateral de la camara a la distancia de
+      trabajo. Es el suelo con el que se puede situar un borde de silueta, y
+      cada dimension depende de dos bordes.
+    - `residual_p95_m`: calidad del ajuste del cuboide.
+    - `view_plane_residual_m`: consistencia entre vistas, es decir registro.
+    - `coverage`: un extremo con poco soporte se localiza peor, en proporcion a
+      la raiz del soporte que le falta.
+    """
+
+    edge_terms = np.full(3, np.sqrt(2.0) * lateral_pitch_m / 2.0)
+    coverage_deficit = np.asarray(
+        [
+            max(0.0, coverage.minimum_support / max(1, support) - 1.0)
+            for support in np.minimum(coverage.lower_support, coverage.upper_support)
+        ]
+    )
+    coverage_terms = lateral_pitch_m * np.sqrt(coverage_deficit)
+    return np.sqrt(
+        np.square(bootstrap_m)
+        + np.square(edge_terms)
+        + np.square(residual_p95_m)
+        + np.square(view_plane_residual_m)
+        + np.square(coverage_terms)
+    )
+
+
+def estimate_cuboid(
+    cloud: FusedCloud,
+    config: AppConfig,
+    *,
+    seed: int,
+    lateral_pitch_m: float,
+) -> tuple[CuboidEstimate | None, RejectionReason | None]:
+    """Ajusta un cuboide alineado al marco del terminal.
+
+    La caja esta soldada al terminal con el agarre centrado, asi que sus caras
+    quedan alineadas con los ejes del marco de fusion y no hace falta buscar la
+    orientacion.
+    """
+
+    estimator = config.estimator
+    if cloud.view_count < estimator.minimum_views:
         return None, RejectionReason.INSUFFICIENT_VIEWS
-    points = np.concatenate([view.points_tool_m for view in views], axis=0)
-    if points.shape[0] < config.estimator.minimum_points:
+    points = cloud.points_m
+    if points.shape[0] < estimator.minimum_points:
         return None, RejectionReason.INSUFFICIENT_FOREGROUND
-    dimensions, residual = _robust_dimensions(points, config.estimator.percentile_low, config.estimator.percentile_high)
-    uncertainty = _bootstrap_uncertainty(points, config, seed)
-    heights = []
-    for view in views:
-        if view.points_tool_m.shape[0] >= 50:
-            z0, z1 = np.percentile(view.points_tool_m[:, 2], [config.estimator.percentile_low, config.estimator.percentile_high])
-            heights.append(float(z1 - z0))
-    height_delta = max(heights) - min(heights) if len(heights) >= 2 else float("inf")
+
+    lower, upper = axis_aligned_extremes_m(points, estimator.percentile_low, estimator.percentile_high)
+    dimensions = _dimensions_from_extent(upper - lower)
+    coverage = face_coverage(points, lower, upper, config)
+    if not coverage.satisfied:
+        return None, RejectionReason.INSUFFICIENT_FACE_COVERAGE
+
     ranges = config.box_range
+    minimum = np.asarray([ranges.length_m[0], ranges.width_m[0], ranges.height_m[0]])
+    maximum = np.asarray([ranges.length_m[1], ranges.width_m[1], ranges.height_m[1]])
+    tolerance = config.sensor.tool_volume_margin_m / 2.0
     values = dimensions.as_array()
-    minimum = np.asarray([ranges.length_m[0], ranges.width_m[0], ranges.height_m[0]]) - 0.02
-    maximum = np.asarray([ranges.length_m[1], ranges.width_m[1], ranges.height_m[1]]) + 0.02
-    if np.any(values < minimum) or np.any(values > maximum):
+    if np.any(values < minimum - tolerance) or np.any(values > maximum + tolerance):
         return None, RejectionReason.OUT_OF_RANGE
-    if height_delta > config.estimator.max_view_height_delta_m:
+
+    residual = distance_to_box_surface_m(points, lower, upper)
+    residual_p95 = float(np.percentile(residual, 95))
+    # Percentil alto, no mediana: una vista desplazada mantiene la mayoria de sus
+    # puntos sobre las caras laterales comunes, y la mediana no lo nota.
+    per_view = np.asarray(
+        [
+            float(np.percentile(distance_to_box_surface_m(cloud.points_for_view(index), lower, upper), 95))
+            if cloud.points_for_view(index).shape[0] > 0
+            else np.inf
+            for index in range(cloud.view_count)
+        ]
+    )
+    view_plane_residual = float(np.max(per_view))
+    if view_plane_residual > estimator.max_view_plane_residual_m:
         return None, RejectionReason.REGISTRATION_INCONSISTENT
-    if np.any(uncertainty.as_array() > config.estimator.max_uncertainty_m):
+
+    extents_per_view = np.asarray(
+        [
+            np.ptp(cloud.points_for_view(index), axis=0)
+            for index in range(cloud.view_count)
+            if cloud.points_for_view(index).shape[0] > 0
+        ]
+    )
+    disagreement = extents_per_view.max(axis=0) - extents_per_view.min(axis=0)
+
+    bootstrap = _bootstrap_uncertainty_m(points, config, seed)
+    uncertainty = combine_uncertainty_m(
+        bootstrap, lateral_pitch_m, residual_p95, view_plane_residual, coverage
+    )
+    if np.any(uncertainty > estimator.max_uncertainty_m):
         return None, RejectionReason.HIGH_UNCERTAINTY
-    point_score = min(1.0, points.shape[0] / 20_000.0)
-    residual_score = float(np.exp(-residual / config.estimator.cuboid_residual_scale_m))
-    uncertainty_score = float(np.exp(-np.mean(uncertainty.as_array()) / config.estimator.max_uncertainty_m))
-    consistency_score = float(np.exp(-height_delta / config.estimator.max_view_height_delta_m))
-    confidence = float(np.clip(0.2 * point_score + 0.3 * residual_score + 0.3 * uncertainty_score + 0.2 * consistency_score, 0.0, 1.0))
-    return GeometricEstimate(dimensions, uncertainty, confidence, residual, height_delta), None
+
+    confidence = _confidence(points.shape[0], residual_p95, uncertainty, coverage, config)
+    return (
+        CuboidEstimate(
+            dimensions=dimensions,
+            uncertainty=Extent3D(*(float(value) for value in uncertainty)),
+            confidence=confidence,
+            lower_m=lower,
+            upper_m=upper,
+            points=int(points.shape[0]),
+            residual_p95_m=residual_p95,
+            view_plane_residual_m=view_plane_residual,
+            view_extent_disagreement_m=disagreement,
+            coverage=coverage,
+        ),
+        None,
+    )
+
+
+def _confidence(
+    point_count: int,
+    residual_p95_m: float,
+    uncertainty_m: np.ndarray,
+    coverage: FaceCoverage,
+    config: AppConfig,
+) -> float:
+    estimator = config.estimator
+    point_score = min(1.0, point_count / 20_000.0)
+    residual_score = float(np.exp(-residual_p95_m / estimator.cuboid_residual_scale_m))
+    uncertainty_score = float(np.exp(-float(np.mean(uncertainty_m)) / estimator.max_uncertainty_m))
+    coverage_score = min(1.0, coverage.weakest_support / (4.0 * estimator.minimum_face_support_points))
+    return float(
+        np.clip(
+            0.15 * point_score + 0.25 * residual_score + 0.3 * uncertainty_score + 0.3 * coverage_score,
+            0.0,
+            1.0,
+        )
+    )

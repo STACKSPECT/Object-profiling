@@ -30,6 +30,7 @@ EVALUATION_MODULES = (
     "checkpoint.py",
     "depth_audit.py",
     "evaluation.py",
+    "geometry_audit.py",
     "registration_audit.py",
     "segmentation_audit.py",
 )

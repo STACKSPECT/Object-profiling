@@ -84,10 +84,12 @@ def view_plane_residuals_m(
     percentile_low: float,
     percentile_high: float,
 ) -> np.ndarray:
-    """Residuo mediano de cada vista frente al cuboide comun de la fusion.
+    """Residuo de cada vista frente al cuboide comun de la fusion.
 
     No usa ground truth: el cuboide de referencia sale de la propia nube
-    fusionada.
+    fusionada. Se toma el percentil 95 y no la mediana, porque una vista
+    desplazada conserva la mayoria de sus puntos sobre las caras laterales
+    comunes y la mediana no acusa el desplazamiento.
     """
 
     lower, upper = axis_aligned_extremes_m(cloud.points_m, percentile_low, percentile_high)
@@ -97,7 +99,7 @@ def view_plane_residuals_m(
         if points.shape[0] == 0:
             residuals[index] = np.inf
             continue
-        residuals[index] = float(np.median(distance_to_box_surface_m(points, lower, upper)))
+        residuals[index] = float(np.percentile(distance_to_box_surface_m(points, lower, upper), 95))
     return residuals
 
 

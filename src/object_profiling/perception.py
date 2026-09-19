@@ -78,16 +78,17 @@ def segment_foreground(
 def tool_volume_bounds_m(config: AppConfig) -> tuple[np.ndarray, np.ndarray]:
     """Volumen de recorte en el marco del terminal.
 
-    Se deriva del rango de cajas declarado, no de la caja concreta. El mismo
-    limite se aplica a los dos ejes horizontales para no presuponer cual de
-    ellos lleva la longitud.
+    Se deriva del rango de cajas declarado y de la geometria del terminal, no de
+    la caja concreta. El mismo limite se aplica a los dos ejes horizontales para
+    no presuponer cual de ellos lleva la longitud. El limite superior en z es el
+    plano de contacto de las copas, contra el que se apoya la cara superior.
     """
 
     sensor = config.sensor
     box_range = config.box_range
     horizontal = max(box_range.length_m[1], box_range.width_m[1]) / 2.0 + sensor.tool_volume_margin_m
     lower = np.asarray(
-        [-horizontal, -horizontal, sensor.tool_to_box_offset_m - sensor.tool_volume_margin_m]
+        [-horizontal, -horizontal, sensor.tool_to_box_offset_m - sensor.cup_plane_margin_m]
     )
     upper = np.asarray(
         [

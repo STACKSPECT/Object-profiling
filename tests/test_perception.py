@@ -89,8 +89,18 @@ def test_tool_volume_is_derived_from_the_declared_box_range() -> None:
     horizontal = max(CONFIG.box_range.length_m[1], CONFIG.box_range.width_m[1]) / 2.0 + margin
     assert lower[:2] == pytest.approx([-horizontal, -horizontal])
     assert upper[:2] == pytest.approx([horizontal, horizontal])
-    assert lower[2] == pytest.approx(offset - margin)
+    # El limite superior en z es el plano de contacto de las copas, con holgura
+    # minima: un margen generoso metia las propias copas en la nube.
+    assert lower[2] == pytest.approx(offset - CONFIG.sensor.cup_plane_margin_m)
     assert upper[2] == pytest.approx(offset + CONFIG.box_range.height_m[1] + margin)
+
+
+def test_the_crop_excludes_the_suction_cups() -> None:
+    """Las copas ocupan z entre 0,065 y 0,089 en el marco del terminal."""
+
+    lower, _upper = tool_volume_bounds_m(CONFIG)
+
+    assert lower[2] > 0.080
 
 
 @pytest.fixture(scope="module")

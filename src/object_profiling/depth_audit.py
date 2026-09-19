@@ -10,15 +10,17 @@ import mujoco
 import numpy as np
 
 from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
-from .contracts import BoxSpec, CameraObservation
+from .contracts import CameraObservation
 from .controller import ScanPoseController
-from .environment import ProfilingEnvironment
+from .environment import BoxSpec, ProfilingEnvironment
 from .poses import SCAN_POSES
 from .sensors import RGBDSensor
 
 
 PIXEL_STRIDE = 4
-# Anillo descartado por la erosion, en pixeles a cada lado.
+# Anillo de la mascara ground truth, solo para esta auditoria. Separa el
+# interior de las caras del borde donde el rasterizado miente. No es el camino
+# de la solucion: el estimador conserva la silueta (EXP-006).
 SILHOUETTE_EROSION_PX = 2
 
 
@@ -27,15 +29,14 @@ class DepthAccuracyRecord:
     object_id: str
     pose_name: str
     quantization_step_m: float
-    # Interior de la caja: la mascara ground truth erosionada, que es la region
-    # sobre la que el estimador deberia apoyarse.
+    # Interior de la caja: mascara GT erosionada, solo para auditar el buffer.
     interior_pixels: int
     interior_mean_absolute_error_m: float
     interior_p95_absolute_error_m: float
     interior_maximum_absolute_error_m: float
     interior_signed_bias_m: float
-    # Borde de silueta: el anillo que la erosion descarta. Ahi el rasterizado y
-    # el rayo del centro del pixel pueden caer en superficies distintas.
+    # Borde de silueta: el anillo que esta auditoria descarta. Ahi el rasterizado
+    # y el rayo del centro del pixel pueden caer en superficies distintas.
     silhouette_pixels: int
     silhouette_p95_absolute_error_m: float
     silhouette_maximum_absolute_error_m: float

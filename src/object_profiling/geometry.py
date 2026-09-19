@@ -45,14 +45,26 @@ class CuboidEstimate:
     coverage: FaceCoverage
 
 
-def _dimensions_from_extent(extent_m: np.ndarray) -> Dimensions3D:
-    """Aplica la convencion length >= width sobre los dos ejes horizontales.
+def axis_assignment(extent_m: np.ndarray) -> tuple[int, int, int]:
+    """Que eje del marco lleva la longitud, la anchura y la altura.
 
-    La altura es el eje Z del terminal, del que cuelga la caja.
+    La altura es siempre el eje Z del terminal, del que cuelga la caja. Entre los
+    dos horizontales, la longitud es el mayor. Publicar esta correspondencia es
+    lo que permite al consumidor recuperar el eje fisico, que el orden
+    `length >= width` por si solo borra.
     """
 
-    horizontal = sorted((float(extent_m[0]), float(extent_m[1])), reverse=True)
-    return Dimensions3D(horizontal[0], horizontal[1], float(extent_m[2]))
+    length_axis, width_axis = (0, 1) if extent_m[0] >= extent_m[1] else (1, 0)
+    return length_axis, width_axis, 2
+
+
+def dimensions_from_extent(extent_m: np.ndarray) -> Dimensions3D:
+    """Aplica la convencion length >= width sobre los dos ejes horizontales."""
+
+    length_axis, width_axis, height_axis = axis_assignment(extent_m)
+    return Dimensions3D(
+        float(extent_m[length_axis]), float(extent_m[width_axis]), float(extent_m[height_axis])
+    )
 
 
 def face_coverage(
@@ -156,7 +168,7 @@ def estimate_cuboid(
         return None, RejectionReason.INSUFFICIENT_FOREGROUND
 
     lower, upper = axis_aligned_extremes_m(points, estimator.percentile_low, estimator.percentile_high)
-    dimensions = _dimensions_from_extent(upper - lower)
+    dimensions = dimensions_from_extent(upper - lower)
     coverage = face_coverage(points, lower, upper, config)
     if not coverage.satisfied:
         return None, RejectionReason.INSUFFICIENT_FACE_COVERAGE

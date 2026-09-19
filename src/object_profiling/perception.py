@@ -6,17 +6,31 @@ import cv2
 import numpy as np
 
 from .config import AppConfig, SensorConfig
-from .contracts import CameraObservation, RejectionReason, ScanView
+from .contracts import CameraObservation, RejectionReason
 from .sensors import backproject_depth
+
+
+@dataclass(frozen=True)
+class ScanView:
+    """Una vista ya segmentada y retroproyectada. Tipo interno del pipeline."""
+
+    pose_name: str
+    target_yaw_deg: int
+    target_tilt_deg: int
+    rgb: np.ndarray
+    depth_m: np.ndarray
+    mask: np.ndarray
+    points_tool_m: np.ndarray
+    touches_border: bool
 
 
 @dataclass(frozen=True)
 class SegmentationResult:
     """Mascara de la caja obtenida solo de RGB-D.
 
-    `mask` es el componente conexo completo y sirve para diagnostico y
-    metricas. `interior_mask` le quita el anillo de silueta y es la que debe
-    retroproyectarse.
+    `mask` es el componente conexo completo. `interior_mask` le quitaría el
+    anillo de silueta si `mask_erosion_px > 0`. Con el valor actual (0) ambas
+    coinciden: EXP-006 midio que ese anillo es el que define los extremos.
     """
 
     mask: np.ndarray

@@ -35,6 +35,7 @@ def test_the_displayed_mask_can_only_be_the_observable_one() -> None:
     # Lo unico que consulta de la escena son las dimensiones reales, y solo para
     # el panel de evaluacion.
     assert source.count("box_spec") == 1
+    assert "medido_inicial" in source
 
 
 def test_a_rejected_profile_still_renders() -> None:

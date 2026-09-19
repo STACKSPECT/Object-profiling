@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .contracts import ScanView, ViewDescriptor
+from .contracts import ViewDescriptor
+from .perception import ScanView
 
 
 # Marco comun de fusion: el sitio de acople de la muneca del UR10e, que es el

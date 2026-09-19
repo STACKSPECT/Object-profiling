@@ -10,9 +10,9 @@ from pathlib import Path
 import numpy as np
 
 from .config import AppConfig
-from .contracts import Extent3D, EvaluationRecord
+from .contracts import Extent3D
 from .environment import ProfilingEnvironment
-from .evaluation import box_to_tool, evaluate_registration
+from .evaluation import EvaluationRecord, box_to_tool, evaluate_registration
 from .profiling_pipeline import profile
 
 # Criterios originales del plan. Se reportan tal cual, se cumplan o no.

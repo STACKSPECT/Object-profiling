@@ -9,10 +9,9 @@ import numpy as np
 
 from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 from .config import AppConfig
-from .contracts import BoxSpec, ScanView
-from .environment import ProfilingEnvironment
+from .environment import BoxSpec, ProfilingEnvironment
 from .evaluation import RegistrationMetrics, box_to_tool, evaluate_registration
-from .perception import observation_to_scan_view
+from .perception import ScanView, observation_to_scan_view
 from .registration import (
     TOOL_FRAME_ID,
     fuse_scan_views,

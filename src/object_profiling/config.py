@@ -27,11 +27,12 @@ class SensorConfig:
     foreground_margin_m: float = 0.004
     # EXP-002 midio 5.010 px visibles en el peor caso, la caja minima. El umbral
     # de colocacion de camara de la auditoria son 4.000 px; aqui solo hace falta
-    # descartar restos que no puedan ser la caja, y la mascara util se erosiona.
+    # descartar restos que no puedan ser la caja.
     min_component_pixels: int = 2_000
     border_margin_px: int = 3
     # EXP-006: la silueta es la unica fuente de los extremos que ninguna cara
-    # observada define, asi que erosionarla los borraba. Se conserva completa.
+    # observada define. Con 0, `interior_mask` coincide con la mascara completa
+    # y es la que se retroproyecta. No reactivar: 2 px costaban ~5 mm de anchura.
     mask_erosion_px: int = 0
     scan_center_world_m: tuple[float, float, float] = (-0.174, 0.735, 0.650)
     # Holgura del volumen de recorte sobre el tamano maximo de caja declarado.
@@ -107,6 +108,9 @@ class MotionConfig:
 
 @dataclass(frozen=True)
 class AppConfig:
+    # Paso del catalogo de cajas. La salida publica incluye la medida ajustada a
+    # este paso; con 0 no se publica ninguna medida ajustada.
+    catalogue_step_m: float = 0.005
     box_range: BoxRange = field(default_factory=BoxRange)
     sensor: SensorConfig = field(default_factory=SensorConfig)
     estimator: EstimatorConfig = field(default_factory=EstimatorConfig)

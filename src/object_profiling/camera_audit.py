@@ -10,9 +10,8 @@ import mujoco
 import numpy as np
 
 from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
-from .contracts import BoxSpec
 from .controller import ScanPoseController
-from .environment import ProfilingEnvironment
+from .environment import BoxSpec, ProfilingEnvironment
 from .poses import SCAN_POSES, RETURN_POSE
 from .sensors import RGBDSensor
 

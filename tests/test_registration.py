@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from object_profiling.contracts import ScanView
+from object_profiling.perception import ScanView
 from object_profiling.registration import (
     TOOL_FRAME_ID,
     axis_aligned_extremes_m,

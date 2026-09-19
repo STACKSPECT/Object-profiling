@@ -15,6 +15,7 @@ SOLUTION_MODULES = (
     "contracts.py",
     "controller.py",
     "geometry.py",
+    "measurement.py",
     "panels.py",
     "perception.py",
     "poses.py",

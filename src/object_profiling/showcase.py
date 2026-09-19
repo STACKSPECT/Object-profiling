@@ -11,8 +11,8 @@ import numpy as np
 
 from .checkpoint import MAXIMUM_BOX, MINIMUM_BOX
 from .config import AppConfig
-from .contracts import BoxSpec, ObjectDimensions
-from .environment import ProfilingEnvironment, generate_box_spec
+from .contracts import ObjectDimensions
+from .environment import BoxSpec, ProfilingEnvironment, generate_box_spec
 from .panels import (
     ACCENT,
     BORDER,
@@ -59,7 +59,7 @@ def contrast_cases(config: AppConfig | None = None) -> tuple[ShowcaseCase, ...]:
     return (
         ShowcaseCase("minima del rango", 0, MINIMUM_BOX),
         ShowcaseCase("maxima del rango", 1, MAXIMUM_BOX),
-        ShowcaseCase("alargada  L/W 2.97", 72),
+        ShowcaseCase("alargada  L/W 3.00", 72),
         ShowcaseCase("casi cubica  L/W 1.00", 731),
         ShowcaseCase("aleatoria", 42),
         ShowcaseCase("aleatoria", 1000),
@@ -100,24 +100,32 @@ def measure_case(
     return ShowcaseOutcome(case, result, truth_m)
 
 
+def _format_mm(values_m: np.ndarray) -> str:
+    millimetres = values_m * 1000.0
+    return f"{millimetres[0]:7.2f} x {millimetres[1]:7.2f} x {millimetres[2]:7.2f}"
+
+
 def _comparison_lines(outcome: ShowcaseOutcome) -> list[Line]:
     dimensions = outcome.dimensions
     lines: list[Line] = [
         (f"{outcome.case.label}   seed {outcome.case.seed}", INK),
-        ("              medido        real      error", INK),
+        ("              inicial     medido      real      error", INK),
     ]
     if not dimensions.valid or dimensions.dimensions_m is None:
         lines.append(("RECHAZADO", WARNING))
         lines.append((f"motivo {dimensions.rejection_reason}", WARNING))
         return lines
 
-    estimated = dimensions.dimensions_m.as_array() * 1000.0
+    initial = dimensions.dimensions_m.as_array() * 1000.0
+    snapped = dimensions.catalogue_dimensions()
+    measured = snapped.as_array() * 1000.0 if snapped is not None else initial
+    truth = outcome.truth_m * 1000.0
     uncertainty = dimensions.uncertainty_m.as_array() * 1000.0
     error = outcome.error_mm
     for index, label in enumerate(("longitud", "anchura", "altura")):
         lines.append(
             (
-                f"{label:9s} {estimated[index]:8.2f}    {outcome.truth_m[index] * 1000.0:8.2f}"
+                f"{label:9s} {initial[index]:8.2f}    {measured[index]:8.2f}    {truth[index]:8.2f}"
                 f"   {error[index]:+7.3f} mm",
                 ACCENT,
             )
@@ -304,13 +312,15 @@ def _table_row(outcome: ShowcaseOutcome) -> str:
     dimensions = outcome.dimensions
     if not dimensions.valid or dimensions.dimensions_m is None:
         return f"  {outcome.case.label:24s} seed {outcome.case.seed:5d}  RECHAZADO {dimensions.rejection_reason}"
-    estimated = dimensions.dimensions_m.as_array() * 1000.0
-    truth = outcome.truth_m * 1000.0
+    published = dimensions.catalogue_dimensions()
+    if published is None:
+        published = dimensions.dimensions_m
     error = outcome.error_mm
     return (
         f"  {outcome.case.label:24s} seed {outcome.case.seed:5d}  "
-        f"medido {estimated[0]:7.2f} x {estimated[1]:7.2f} x {estimated[2]:7.2f}  "
-        f"real {truth[0]:7.2f} x {truth[1]:7.2f} x {truth[2]:7.2f}  "
+        f"medido_inicial {_format_mm(dimensions.dimensions_m.as_array())}  "
+        f"medido {_format_mm(published.as_array())}  "
+        f"real {_format_mm(outcome.truth_m)}  "
         f"error {error[0]:+6.3f} {error[1]:+6.3f} {error[2]:+6.3f} mm"
     )
 

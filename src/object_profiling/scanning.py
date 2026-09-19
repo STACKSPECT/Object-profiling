@@ -17,28 +17,47 @@ class ScanCycle:
     observations: tuple[CameraObservation, ...]
 
 
+def calibrate_backgrounds(
+    environment: ProfilingEnvironment,
+    sensor: RGBDSensor,
+    *,
+    poses: tuple[ScanPose, ...] = SCAN_POSES,
+) -> BackgroundSet:
+    """Calibra los fondos de la estacion vacia.
+
+    Ya no depende de la caja del episodio, porque el apoyo esta a una altura fija,
+    asi que el resultado se puede reutilizar en todos los ciclos de una sesion.
+    """
+
+    environment.set_box_visible(False)
+    backgrounds = capture_pose_backgrounds(environment, sensor, poses=poses)
+    environment.reset(attach_box=False)
+    return backgrounds
+
+
 def run_fixed_scan(
     environment: ProfilingEnvironment,
     sensor: RGBDSensor,
     *,
     poses: tuple[ScanPose, ...] = SCAN_POSES,
+    backgrounds: BackgroundSet | None = None,
     on_state: Callable[[str], None] | None = None,
     on_step: Callable[[], None] | None = None,
     on_capture: Callable[[ScanPose, CameraObservation, BackgroundSet], None] | None = None,
 ) -> ScanCycle:
-    """Ejecuta el ciclo fijo de calibracion, agarre, escaneo y retorno.
+    """Ejecuta el ciclo fijo de agarre, escaneo y retorno.
 
     La secuencia no depende de lo que se observe: todas las cajas recorren las
-    mismas poses. Los fondos se toman antes de agarrar, en una pasada previa con
-    la estacion vacia, para no retirar y volver a soldar la caja entre capturas.
+    mismas poses. Si se pasan fondos ya calibrados, el ciclo no retira la caja en
+    ningun momento; si no, los calibra antes de agarrar.
     """
 
     report = on_state or (lambda _name: None)
     controller = ScanPoseController(environment)
 
-    report("CALIBRATE_BACKGROUND")
-    environment.set_box_visible(False)
-    backgrounds = capture_pose_backgrounds(environment, sensor, poses=poses)
+    if backgrounds is None:
+        report("CALIBRATE_BACKGROUND")
+        backgrounds = calibrate_backgrounds(environment, sensor, poses=poses)
 
     report("PRESENT_BOX")
     environment.reset(attach_box=False)

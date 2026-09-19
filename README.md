@@ -48,16 +48,20 @@ La succión se abstrae mediante un `equality weld` rígido declarado de MuJoCo. 
 
 ### Contrato de salida
 
-`ObjectDimensions`, versión de esquema 2, en el marco `ur10e_attachment_site`:
+`ObjectDimensions`, versión de esquema 3, en el marco `ur10e_attachment_site`.
+`dimensions_m` es la medida continua; el palé debe usar `dimensions_snapped_m`
+(múltiplos de 5 mm). `pose` es opcional.
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "object_id": "box-0042",
   "timestamp_s": 3.588,
   "frame_id": "ur10e_attachment_site",
   "dimensions_m": {"length": 0.3435, "width": 0.1988, "height": 0.2273},
+  "dimensions_snapped_m": {"length": 0.345, "width": 0.200, "height": 0.225},
   "uncertainty_m": {"length": 0.0023, "width": 0.0023, "height": 0.0023},
+  "pose": null,
   "views_used": [{"pose_name": "SCAN_YAW_0", "yaw_deg": 0, "tilt_deg": 0}],
   "confidence": 0.92,
   "valid": true,
@@ -141,13 +145,7 @@ masas, la reconstrucción del palé ni la planificación de colocación.
 
 ## Puesta en marcha
 
-En macOS, Open3D necesita `libusb` como dependencia nativa:
-
-```bash
-brew install libusb
-```
-
-Después, activar el entorno local e instalar las dependencias de Python:
+Activar el entorno local e instalar las dependencias de Python:
 
 ```bash
 source .venv/bin/activate

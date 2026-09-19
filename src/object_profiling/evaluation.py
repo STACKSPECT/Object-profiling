@@ -1,11 +1,33 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any
 
 import mujoco
 import numpy as np
 
+from .contracts import Dimensions3D, Extent3D, ObjectDimensions
 from .environment import ProfilingEnvironment
+
+
+@dataclass(frozen=True)
+class EvaluationRecord:
+    """Prediccion emparejada con el ground truth de su episodio."""
+
+    seed: int
+    ground_truth_m: Dimensions3D
+    prediction: ObjectDimensions
+    absolute_error_m: Extent3D | None
+    perception_latency_s: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "seed": self.seed,
+            "ground_truth_m": asdict(self.ground_truth_m),
+            "prediction": self.prediction.to_dict(),
+            "absolute_error_m": asdict(self.absolute_error_m) if self.absolute_error_m else None,
+            "perception_latency_s": self.perception_latency_s,
+        }
 
 
 TERMINAL_GEOM_NAMES = (

@@ -56,10 +56,12 @@ def test_the_profile_is_close_to_the_ground_truth(nominal_profile) -> None:
 
     truth = generate_box_spec(SEED, AppConfig()).dimensions_m.as_array()
     estimated = nominal_profile.dimensions.dimensions_m.as_array()
+    snapped = nominal_profile.dimensions.dimensions_snapped_m.as_array()
     uncertainty = nominal_profile.dimensions.uncertainty_m.as_array()
 
     assert np.all(np.abs(estimated - truth) < 0.005)
     assert np.all(np.abs(estimated - truth) <= uncertainty)
+    assert snapped == pytest.approx(truth)
 
 
 def test_the_serialised_contract_is_json_ready(nominal_profile) -> None:
@@ -78,7 +80,9 @@ def test_the_serialised_contract_is_json_ready(nominal_profile) -> None:
         "timestamp_s",
         "frame_id",
         "dimensions_m",
+        "dimensions_snapped_m",
         "uncertainty_m",
+        "pose",
         "views_used",
         "confidence",
         "valid",

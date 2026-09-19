@@ -22,11 +22,22 @@ class BoxRange:
 class SensorConfig:
     width: int = 640
     height: int = 480
+    # Absorbe el asentamiento del terminal entre la estacion vacia del fondo y
+    # la caja suspendida, que EXP-003 midio por debajo de 0,1 mm.
     foreground_margin_m: float = 0.004
-    min_component_pixels: int = 500
+    # EXP-002 midio 5.010 px visibles en el peor caso, la caja minima. El umbral
+    # de colocacion de camara de la auditoria son 4.000 px; aqui solo hace falta
+    # descartar restos que no puedan ser la caja, y la mascara util se erosiona.
+    min_component_pixels: int = 2_000
     border_margin_px: int = 3
+    # EXP-003: un pixel de silueta puede errar 97,7 mm frente a 0,03 mm en el
+    # interior. Se retira ese anillo antes de retroproyectar.
+    mask_erosion_px: int = 2
     scan_center_world_m: tuple[float, float, float] = (-0.174, 0.735, 0.650)
-    scan_half_extent_m: tuple[float, float, float] = (0.34, 0.34, 0.34)
+    # Holgura del volumen de recorte sobre el tamano maximo de caja declarado.
+    tool_volume_margin_m: float = 0.04
+    # Separacion entre el marco del terminal y la cara superior de la caja.
+    tool_to_box_offset_m: float = 0.089
 
 
 @dataclass(frozen=True)

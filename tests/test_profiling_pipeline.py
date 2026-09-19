@@ -6,7 +6,14 @@ import numpy as np
 import pytest
 
 from object_profiling.config import AppConfig, EstimatorConfig, SensorConfig
-from object_profiling.contracts import OBJECT_DIMENSIONS_SCHEMA_VERSION, RejectionReason
+from object_profiling.contracts import (
+    OBJECT_DIMENSIONS_SCHEMA_VERSION,
+    BoxCondition,
+    RejectionReason,
+    RoutingHint,
+)
+from object_profiling.evaluation.checkpoint import NOMINAL_BOX
+from object_profiling.station.damage import DamageKind, DamageSpec
 from object_profiling.station.environment import ProfilingEnvironment, generate_box_spec
 from object_profiling.station.poses import SCAN_POSES
 from object_profiling.station.pipeline import profile, profile_seed, profile_session
@@ -69,6 +76,30 @@ def test_the_inspection_yaw_is_not_fed_to_the_estimator() -> None:
     assert [observation.pose_name for observation in cycle.inspection_observations] == [
         "SCAN_YAW_180",
     ]
+
+
+def test_a_plus_y_dent_is_detected_from_the_inspection_yaw() -> None:
+    """Y0+Y90 no ven +y; el segundo +90° tiene que entrar en el inspector."""
+
+    spec = dataclasses.replace(
+        NOMINAL_BOX,
+        damage=DamageSpec(DamageKind.DENTED_FACE, 0.025, "face:+y", radius_m=0.05),
+    )
+    environment = ProfilingEnvironment.create(spec, AppConfig(), attach_box=False)
+    result = profile(environment)
+
+    assert [view.pose_name for view in result.dimensions.views_used] == [
+        "SCAN_YAW_0",
+        "SCAN_YAW_90",
+    ]
+    assert result.dimensions.condition is BoxCondition.DAMAGED
+    assert result.dimensions.routing is RoutingHint.ERROR_ZONE
+    assert result.dimensions.damage is not None
+    assert result.dimensions.valid is True
+    assert result.dimensions.dimensions_m is not None
+    truth = spec.dimensions_m.as_array()
+    estimated = result.dimensions.dimensions_m.as_array()
+    assert np.all(np.abs(estimated - truth) < 0.005)
 
 
 def test_the_profile_is_close_to_the_ground_truth(nominal_profile) -> None:

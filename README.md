@@ -34,8 +34,9 @@ CALIBRATE_BACKGROUND
 se descarta, y desaparece antes de que aparezca la siguiente. Los fondos se
 calibran una sola vez. La trayectoria es fija: no elige vistas según el
 resultado. La medida usa `SCAN_YAW_0` y `SCAN_YAW_90` (EXP-008). `SCAN_YAW_180`
-es el segundo giro en el mismo sentido, para inspección de caras; no entra en
-`measure()`. Cámara RGB-D fija por debajo de la caja (EXP-009).
+es el segundo giro en el mismo sentido: se fusiona **solo** para inspección, de
+modo que las cinco caras no agarradas (fondo + cuatro laterales) entren en el
+detector (EXP-015). Cámara RGB-D fija por debajo de la caja (EXP-009).
 
 La tabla de 300 seeds siguiente es EXP-008 (cámara **alta**). Con la cámara
 baja de esta rama, 20 seeds (1000–1019): MAE L/W/H 0,016 / 0,195 / 0,102 mm,
@@ -237,3 +238,4 @@ python -m pytest -p no:cacheprovider
 - [EXP-012: señales de inspección](docs/findings/EXP-012-senales-de-inspeccion.md)
 - [EXP-013: reconocimiento de daño](docs/findings/EXP-013-reconocimiento-de-dano.md)
 - [EXP-014: descarte y prevalencia 10 %](docs/findings/EXP-014-descarte-y-prevalencia.md)
+- [EXP-015: inspección de cinco caras y envolvente con daño](docs/findings/EXP-015-inspeccion-cinco-caras.md)

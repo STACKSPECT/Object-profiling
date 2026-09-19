@@ -47,6 +47,8 @@
       <site name="error_zone_drop" pos="0 0 0.45" size="0.01" rgba="0.9 0.2 0.1 1"/>
     </body>
 
+    <!-- Tres cuartos por debajo de la caja: ve el fondo y dos laterales.
+         Con yaw 0 / 90 / 180 se recorren las cinco caras no agarradas. -->
     <body name="scan_target" pos="-0.174 0.735 0.650"/>
     <camera name="scan_rgbd_cam" mode="targetbody" target="scan_target" pos="0.5566 1.22835 0.38025" fovy="50" resolution="640 480"/>
     <body name="scan_camera_housing" pos="0.6042 1.2605 0.3978">

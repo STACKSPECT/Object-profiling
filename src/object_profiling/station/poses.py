@@ -38,8 +38,11 @@ SCAN_TILT_35 = ScanPose("SCAN_TILT_35", 0, 35)
 
 # Vistas que alimentan measure(). La inspeccion de defectos no entra aqui.
 SCAN_POSES: tuple[ScanPose, ...] = (SCAN_YAW_0, SCAN_YAW_90)
-# Segundo +90° en el mismo sentido, para ver la cuarta lateral. No es medida.
+# Segundo +90° en el mismo sentido. Completa las cinco caras visibles desde
+# abajo (fondo + cuatro laterales). Se fusiona solo para inspeccion.
 INSPECTION_POSES: tuple[ScanPose, ...] = (SCAN_YAW_180,)
+# Recorrido de estacion: medida y luego el yaw extra de inspeccion.
+STATION_POSES: tuple[ScanPose, ...] = (*SCAN_POSES, *INSPECTION_POSES)
 
 
 def pose_by_name(name: str) -> ScanPose:

@@ -162,6 +162,26 @@ def test_a_misregistered_view_is_rejected() -> None:
     assert reason is RejectionReason.REGISTRATION_INCONSISTENT
 
 
+def test_an_inward_dent_does_not_fail_registration() -> None:
+    """El envolvente sigue siendo el cuboide; el hueco es inspeccion, no registro."""
+
+    truth = np.asarray([0.30, 0.20, 0.15])
+    points = _face_points(truth, 1200, seed=12)
+    on_plus_x = np.isclose(points[:, 0], 0.15, atol=0.002)
+    interior = on_plus_x & (np.abs(points[:, 1]) < 0.06) & (
+        (points[:, 2] > TOP_Z_M + 0.03) & (points[:, 2] < TOP_Z_M + 0.12)
+    )
+    dented = points.copy()
+    dented[interior, 0] -= 0.020
+
+    estimate, reason = estimate_cuboid(
+        _cloud(dented), CONFIG, seed=42, lateral_pitch_m=NOMINAL_PITCH_M, ignore_inward_residual=True
+    )
+
+    assert reason is None
+    assert estimate.dimensions.as_array() == pytest.approx(truth, abs=0.002)
+
+
 def test_a_coarse_camera_is_rejected_for_high_uncertainty() -> None:
     points = _face_points(np.asarray([0.30, 0.20, 0.15]), 1200, seed=9)
 

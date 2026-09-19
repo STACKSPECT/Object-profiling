@@ -6,7 +6,7 @@ import numpy as np
 
 from ..config import AppConfig
 from ..contracts import Dimensions3D, Extent3D, RejectionReason
-from .registration import FusedCloud, axis_aligned_extremes_m, distance_to_box_surface_m
+from .registration import FusedCloud, axis_aligned_extremes_m, distance_to_box_surface_m, signed_distance_to_box_m
 
 
 @dataclass(frozen=True)
@@ -89,6 +89,27 @@ def face_coverage(
     )
 
 
+def _surface_residual_p95_m(
+    points_m: np.ndarray,
+    lower_m: np.ndarray,
+    upper_m: np.ndarray,
+    inward_ignore_m: float,
+) -> float:
+    """Residuo p95 ignorando puntos hundidos hacia dentro del cuboide.
+
+    Un defecto no debe tumbar la medida del envolvente ni el chequeo de
+    registro: esos puntos los consume el inspector.
+    """
+
+    if points_m.shape[0] == 0:
+        return float("inf")
+    signed = signed_distance_to_box_m(points_m, lower_m, upper_m)
+    surface = signed > -inward_ignore_m
+    if int(np.count_nonzero(surface)) < 8:
+        return 0.0
+    return float(np.percentile(np.abs(signed[surface]), 95))
+
+
 def _bootstrap_uncertainty_m(points_m: np.ndarray, config: AppConfig, seed: int) -> np.ndarray:
     """Dispersion del extremo robusto al remuestrear la nube."""
 
@@ -152,12 +173,16 @@ def estimate_cuboid(
     *,
     seed: int,
     lateral_pitch_m: float,
+    ignore_inward_residual: bool = False,
 ) -> tuple[CuboidEstimate | None, RejectionReason | None]:
     """Ajusta un cuboide alineado al marco del terminal.
 
     La caja esta soldada al terminal con el agarre centrado, asi que sus caras
     quedan alineadas con los ejes del marco de fusion y no hace falta buscar la
     orientacion.
+
+    `ignore_inward_residual` solo se usa cuando el inspector ya declaro dano:
+    el hueco hacia dentro no debe tumbar el envolvente ni el chequeo de registro.
     """
 
     estimator = config.estimator
@@ -181,18 +206,35 @@ def estimate_cuboid(
     if np.any(values < minimum - tolerance) or np.any(values > maximum + tolerance):
         return None, RejectionReason.OUT_OF_RANGE
 
-    residual = distance_to_box_surface_m(points, lower, upper)
-    residual_p95 = float(np.percentile(residual, 95))
+    residual_p95 = (
+        _surface_residual_p95_m(points, lower, upper, estimator.inward_residual_ignore_m)
+        if ignore_inward_residual
+        else float(np.percentile(distance_to_box_surface_m(points, lower, upper), 95))
+    )
     # Percentil alto, no mediana: una vista desplazada mantiene la mayoria de sus
     # puntos sobre las caras laterales comunes, y la mediana no lo nota.
-    per_view = np.asarray(
-        [
-            float(np.percentile(distance_to_box_surface_m(cloud.points_for_view(index), lower, upper), 95))
-            if cloud.points_for_view(index).shape[0] > 0
-            else np.inf
-            for index in range(cloud.view_count)
-        ]
-    )
+    if ignore_inward_residual:
+        per_view = np.asarray(
+            [
+                _surface_residual_p95_m(
+                    cloud.points_for_view(index), lower, upper, estimator.inward_residual_ignore_m
+                )
+                for index in range(cloud.view_count)
+            ]
+        )
+    else:
+        per_view = np.asarray(
+            [
+                float(
+                    np.percentile(
+                        distance_to_box_surface_m(cloud.points_for_view(index), lower, upper), 95
+                    )
+                )
+                if cloud.points_for_view(index).shape[0] > 0
+                else np.inf
+                for index in range(cloud.view_count)
+            ]
+        )
     view_plane_residual = float(np.max(per_view))
     if view_plane_residual > estimator.max_view_plane_residual_m:
         return None, RejectionReason.REGISTRATION_INCONSISTENT

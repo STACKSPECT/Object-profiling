@@ -12,7 +12,7 @@ import numpy as np
 from ...station.camera import RGBDSensor
 from ...station.controller import ScanPoseController
 from ...station.environment import BoxSpec, ProfilingEnvironment
-from ...station.poses import INSPECTION_POSES, SCAN_POSES
+from ...station.poses import STATION_POSES
 from ..checkpoint import MAXIMUM_BOX, MINIMUM_BOX, NOMINAL_BOX
 
 
@@ -106,7 +106,7 @@ def audit_box_camera(box_spec: BoxSpec, *, artifact_directory: Path | None = Non
     records: list[CameraCoverageRecord] = []
 
     try:
-        for pose in SCAN_POSES:
+        for pose in STATION_POSES:
             pose_name, yaw_deg, tilt_deg = pose.name, pose.yaw_deg, pose.tilt_deg
             controller.move_to_qpos(pose.target_qpos(environment.config.motion))
             observation = sensor.capture(pose_name, yaw_deg=yaw_deg, tilt_deg=tilt_deg)
@@ -175,8 +175,6 @@ def audit_box_camera(box_spec: BoxSpec, *, artifact_directory: Path | None = Non
                     observation.depth_m,
                     mask,
                 )
-
-        controller.move_to_qpos(INSPECTION_POSES[0].target_qpos(environment.config.motion))
     finally:
         sensor.close()
         evaluator.close()

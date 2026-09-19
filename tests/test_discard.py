@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import mujoco
-import numpy as np
-
 from dataclasses import replace
 
 import mujoco
@@ -73,9 +70,14 @@ def test_visible_dent_is_routed_to_the_error_zone() -> None:
     environment = ProfilingEnvironment.create(spec, AppConfig(), attach_box=False)
     result = profile(environment)
 
+    assert result.dimensions.valid is True
     assert result.dimensions.condition is BoxCondition.DAMAGED
     assert result.dimensions.routing is RoutingHint.ERROR_ZONE
     assert result.dimensions.damage is not None
+    assert result.dimensions.dimensions_m is not None
+    truth = spec.dimensions_m.as_array()
+    estimated = result.dimensions.dimensions_m.as_array()
+    assert np.all(np.abs(estimated - truth) < 0.005)
     assert box_rests_in_error_bin(environment)
     assert not environment.box_attached
     environment = ProfilingEnvironment.create(NOMINAL_BOX, AppConfig(), attach_box=True)
@@ -83,5 +85,24 @@ def test_visible_dent_is_routed_to_the_error_zone() -> None:
     environment._place_box()
     environment.attach_box()
     discard_to_error_zone(environment)
+    assert box_rests_in_error_bin(environment)
+    assert not environment.box_attached
+
+
+def test_bottom_panel_buckle_is_measured_and_parked() -> None:
+    spec = replace(
+        NOMINAL_BOX,
+        damage=DamageSpec(DamageKind.BUCKLED_PANEL, 0.020, "face:+z"),
+    )
+    environment = ProfilingEnvironment.create(spec, AppConfig(), attach_box=False)
+    result = profile(environment)
+
+    assert result.dimensions.valid is True
+    assert result.dimensions.condition is BoxCondition.DAMAGED
+    assert result.dimensions.routing is RoutingHint.ERROR_ZONE
+    assert result.dimensions.dimensions_m is not None
+    truth = spec.dimensions_m.as_array()
+    estimated = result.dimensions.dimensions_m.as_array()
+    assert np.all(np.abs(estimated - truth) < 0.005)
     assert box_rests_in_error_bin(environment)
     assert not environment.box_attached

@@ -16,7 +16,7 @@ from .poses import INSPECTION_POSES, SCAN_POSES, ScanPose
 class ScanCycle:
     backgrounds: BackgroundSet
     observations: tuple[CameraObservation, ...]
-    # RGB-D de inspeccion (yaw 180). No entra en measure().
+    # RGB-D de inspeccion (yaw 180). Se fusiona para dano, no para L/W/H.
     inspection_observations: tuple[CameraObservation, ...] = ()
 
 
@@ -63,8 +63,8 @@ def run_fixed_scan(
 ) -> ScanCycle:
     """Agarre, capturas de medida y giro de inspeccion en el mismo sentido.
 
-    `poses` alimenta measure(). `finish_poses` (por defecto yaw 180) se captura
-    aparte para defectos y no se mezcla con las observaciones de medida.
+    `poses` alimenta measure(). `finish_poses` (por defecto yaw 180) se fusiona
+    solo para inspeccion de las cinco caras visibles; no entra en L/W/H.
     """
 
     report = on_state or (lambda _name: None)

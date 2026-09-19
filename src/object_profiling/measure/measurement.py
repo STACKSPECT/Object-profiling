@@ -109,23 +109,11 @@ def rejected_measurement(
     )
 
 
-def measure(
+def _scan_views(
     observations: Sequence[CameraObservation],
     backgrounds: BackgroundSet,
-    config: AppConfig | None = None,
-    *,
-    object_id: str,
-    bootstrap_seed: int = DEFAULT_BOOTSTRAP_SEED,
-) -> MeasurementResult:
-    """Segmenta, registra, ajusta el cuboide y valida.
-
-    No recibe el entorno de simulacion, solo observaciones y fondos. Es lo que
-    hace la medicion trasladable a otra escena.
-    """
-
-    config = config or AppConfig()
-    timestamp = max((observation.timestamp_s for observation in observations), default=0.0)
-
+    config: AppConfig,
+) -> tuple[list[ScanView], list[tuple[str, str]], list[float]]:
     views: list[ScanView] = []
     rejected: list[tuple[str, str]] = []
     pitches: list[float] = []
@@ -141,6 +129,39 @@ def measure(
             continue
         views.append(view)
         pitches.append(lateral_pitch_m(observation, view.mask))
+    return views, rejected, pitches
+
+
+def measure(
+    observations: Sequence[CameraObservation],
+    backgrounds: BackgroundSet,
+    config: AppConfig | None = None,
+    *,
+    object_id: str,
+    bootstrap_seed: int = DEFAULT_BOOTSTRAP_SEED,
+    inspection_observations: Sequence[CameraObservation] = (),
+) -> MeasurementResult:
+    """Segmenta, registra, ajusta el cuboide y valida.
+
+    No recibe el entorno de simulacion, solo observaciones y fondos. Es lo que
+    hace la medicion trasladable a otra escena.
+
+    `observations` alimentan L/W/H. `inspection_observations` se fusionan
+    solo para el inspector, para cubrir las caras que las vistas de medida
+    no ven (el +y del yaw 180 desde la camara baja).
+    """
+
+    config = config or AppConfig()
+    timestamp = max(
+        (observation.timestamp_s for observation in (*observations, *inspection_observations)),
+        default=0.0,
+    )
+
+    views, rejected, pitches = _scan_views(observations, backgrounds, config)
+    inspection_views, inspection_rejected, _ = _scan_views(
+        inspection_observations, backgrounds, config
+    )
+    rejected.extend(inspection_rejected)
 
     if not views:
         reason = RejectionReason(rejected[0][1]) if rejected else RejectionReason.INSUFFICIENT_VIEWS
@@ -153,27 +174,29 @@ def measure(
         )
 
     cloud = fuse_scan_views(views)
-    estimate, reason = estimate_cuboid(
-        cloud, config, seed=bootstrap_seed, lateral_pitch_m=float(np.median(pitches))
-    )
-    if estimate is None:
-        inspection = None
-        assessment = None
-        dimensions = _rejected(object_id, timestamp, reason, views)
-        fallback = provisional_cuboid(cloud, config)
-        if fallback is not None:
-            inspection = inspect_cloud(cloud, fallback, config)
-            assessment = assess_damage(inspection, fallback.dimensions.as_array(), config)
-            if assessment.condition is BoxCondition.DAMAGED:
-                dimensions = replace(
-                    dimensions,
-                    condition=assessment.condition,
-                    routing=assessment.routing,
-                    damage=assessment.report,
-                )
+    inspection_cloud = fuse_scan_views(views + inspection_views) if inspection_views else cloud
+    pitch = float(np.median(pitches))
+    estimate, reason = estimate_cuboid(cloud, config, seed=bootstrap_seed, lateral_pitch_m=pitch)
+
+    def accepted(estimate: CuboidEstimate, assessment: DamageAssessment, inspection: InspectionMetrics) -> MeasurementResult:
         return MeasurementResult(
-            dimensions=dimensions,
-            estimate=None,
+            dimensions=ObjectDimensions(
+                object_id=object_id,
+                timestamp_s=timestamp,
+                frame_id=cloud.frame_id,
+                dimensions_m=estimate.dimensions,
+                dimensions_snapped_m=snap_to_catalogue(estimate.dimensions, config.catalogue_step_m),
+                uncertainty_m=estimate.uncertainty,
+                pose=_cuboid_pose(estimate, config),
+                views_used=cloud.views,
+                confidence=estimate.confidence,
+                valid=True,
+                rejection_reason=None,
+                condition=assessment.condition,
+                routing=assessment.routing,
+                damage=assessment.report,
+            ),
+            estimate=estimate,
             cloud=cloud,
             views=tuple(views),
             rejected_views=tuple(rejected),
@@ -181,26 +204,44 @@ def measure(
             assessment=assessment,
         )
 
-    inspection = inspect_cloud(cloud, estimate, config)
-    assessment = assess_damage(inspection, estimate.dimensions.as_array(), config)
-    return MeasurementResult(
-        dimensions=ObjectDimensions(
-            object_id=object_id,
-            timestamp_s=timestamp,
-            frame_id=cloud.frame_id,
-            dimensions_m=estimate.dimensions,
-            dimensions_snapped_m=snap_to_catalogue(estimate.dimensions, config.catalogue_step_m),
-            uncertainty_m=estimate.uncertainty,
-            pose=_cuboid_pose(estimate, config),
-            views_used=cloud.views,
-            confidence=estimate.confidence,
-            valid=True,
-            rejection_reason=None,
+    if estimate is not None:
+        inspection = inspect_cloud(inspection_cloud, estimate, config)
+        assessment = assess_damage(inspection, estimate.dimensions.as_array(), config)
+        return accepted(estimate, assessment, inspection)
+
+    dimensions = _rejected(object_id, timestamp, reason, views)
+    fallback = provisional_cuboid(cloud, config)
+    if fallback is None:
+        return MeasurementResult(
+            dimensions=dimensions,
+            estimate=None,
+            cloud=cloud,
+            views=tuple(views),
+            rejected_views=tuple(rejected),
+        )
+    inspection = inspect_cloud(inspection_cloud, fallback, config)
+    assessment = assess_damage(inspection, fallback.dimensions.as_array(), config)
+    if assessment.condition is BoxCondition.DAMAGED:
+        relaxed, _ = estimate_cuboid(
+            cloud,
+            config,
+            seed=bootstrap_seed,
+            lateral_pitch_m=pitch,
+            ignore_inward_residual=True,
+        )
+        if relaxed is not None:
+            inspection = inspect_cloud(inspection_cloud, relaxed, config)
+            assessment = assess_damage(inspection, relaxed.dimensions.as_array(), config)
+            return accepted(relaxed, assessment, inspection)
+        dimensions = replace(
+            dimensions,
             condition=assessment.condition,
             routing=assessment.routing,
             damage=assessment.report,
-        ),
-        estimate=estimate,
+        )
+    return MeasurementResult(
+        dimensions=dimensions,
+        estimate=None,
         cloud=cloud,
         views=tuple(views),
         rejected_views=tuple(rejected),

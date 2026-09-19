@@ -27,15 +27,9 @@ CORNER_NAMES = (
     "-x+y+z",
     "+x+y+z",
 )
-
-
-def signed_distance_to_box_m(points_m: np.ndarray, lower_m: np.ndarray, upper_m: np.ndarray) -> np.ndarray:
-    center = (lower_m + upper_m) / 2.0
-    half_extent = (upper_m - lower_m) / 2.0
-    offset = np.abs(points_m - center) - half_extent
-    outside = np.linalg.norm(np.maximum(offset, 0.0), axis=1)
-    inside = np.minimum(np.max(offset, axis=1), 0.0)
-    return outside + inside
+# _corners recorre primero z inferior: las cuatro de la cara de agarre. Desde
+# abajo no se ven y el generador no las dana. El detector solo vota las +z.
+ANTI_GRASP_CORNER_INDICES = (4, 5, 6, 7)
 
 
 def _face_planes(lower_m: np.ndarray, upper_m: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -181,7 +175,9 @@ def inspect_cloud(cloud: FusedCloud, estimate: CuboidEstimate, config: AppConfig
     inward_mask = signed < -config.damage.cluster_inward_m
     inward_fraction = float(np.mean(inward_mask)) if points.shape[0] else 0.0
     max_inward = float(np.max(np.maximum(-signed, 0.0))) if points.shape[0] else 0.0
-    weakest = int(np.argmin(support)) if support else 0
+    anti_grasp = [support[index] for index in ANTI_GRASP_CORNER_INDICES] if support else []
+    weakest_local = int(np.argmin(anti_grasp)) if anti_grasp else 0
+    weakest = ANTI_GRASP_CORNER_INDICES[weakest_local] if anti_grasp else 0
     return InspectionMetrics(
         residual_p95_m=residual_p95,
         face_planarity_p95_m=tuple(planarity),
@@ -205,7 +201,11 @@ def stacking_threshold_m(extent_m: np.ndarray, config: AppConfig) -> float:
 
 def assess_damage(metrics: InspectionMetrics, extent_m: np.ndarray, config: AppConfig) -> DamageAssessment:
     threshold = stacking_threshold_m(extent_m, config)
-    supports = np.asarray(metrics.corner_support, dtype=np.float64)
+    supports = (
+        np.asarray([metrics.corner_support[index] for index in ANTI_GRASP_CORNER_INDICES], dtype=np.float64)
+        if metrics.corner_support
+        else np.zeros(0)
+    )
     median_support = float(np.median(supports)) if supports.size else 0.0
     # Las esquinas ocluidas de una caja sana tienen menos puntos, no cero. Un
     # chaflan deja la esfera practicamente vacia; el suelo absoluto evita el

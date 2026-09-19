@@ -31,7 +31,7 @@ from .camera import RGBDSensor, RenderError
 from .controller import MotionError
 from .discard import discard_to_error_zone
 from .environment import ProfilingEnvironment
-from .poses import INSPECTION_POSES, SCAN_POSES
+from .poses import STATION_POSES
 from .scanning import calibrate_backgrounds, run_fixed_scan
 
 
@@ -82,7 +82,7 @@ def profile(
     """Ejecuta el ciclo fijo y devuelve `ObjectDimensions`.
 
     La trayectoria no depende del resultado: las dos poses de medida se recorren
-    siempre; el yaw 180 de inspeccion no entra en `measure()`.
+    siempre; el yaw 180 se captura despues y se fusiona solo para inspeccion.
     Recibe el episodio ya construido y solo su etiqueta, nunca su geometria.
     """
 
@@ -125,6 +125,7 @@ def profile(
         config,
         object_id=object_id,
         bootstrap_seed=bootstrap_seed,
+        inspection_observations=cycle.inspection_observations,
     )
     perception_latency = time.perf_counter() - perception_started
 
@@ -174,7 +175,7 @@ def profile_session(
     try:
         report("CALIBRATE_BACKGROUND")
         backgrounds = calibrate_backgrounds(
-            environment, sensor, poses=(*SCAN_POSES, *INSPECTION_POSES)
+            environment, sensor, poses=STATION_POSES
         )
     finally:
         sensor.close()

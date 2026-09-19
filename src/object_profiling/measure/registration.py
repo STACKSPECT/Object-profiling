@@ -61,6 +61,21 @@ def axis_aligned_extremes_m(
     return lower, upper
 
 
+def signed_distance_to_box_m(
+    points_m: np.ndarray,
+    lower_m: np.ndarray,
+    upper_m: np.ndarray,
+) -> np.ndarray:
+    """Distancia firmada a la superficie: negativa dentro, positiva fuera."""
+
+    center = (lower_m + upper_m) / 2.0
+    half_extent = (upper_m - lower_m) / 2.0
+    offset = np.abs(points_m - center) - half_extent
+    outside = np.linalg.norm(np.maximum(offset, 0.0), axis=1)
+    inside = np.minimum(np.max(offset, axis=1), 0.0)
+    return outside + inside
+
+
 def distance_to_box_surface_m(
     points_m: np.ndarray,
     lower_m: np.ndarray,
@@ -72,12 +87,7 @@ def distance_to_box_surface_m(
     demas, sus puntos dejarian de apoyarse en las caras comunes.
     """
 
-    center = (lower_m + upper_m) / 2.0
-    half_extent = (upper_m - lower_m) / 2.0
-    offset = np.abs(points_m - center) - half_extent
-    outside = np.linalg.norm(np.maximum(offset, 0.0), axis=1)
-    inside = np.minimum(np.max(offset, axis=1), 0.0)
-    return np.abs(outside + inside)
+    return np.abs(signed_distance_to_box_m(points_m, lower_m, upper_m))
 
 
 def view_plane_residuals_m(

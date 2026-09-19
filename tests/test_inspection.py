@@ -68,3 +68,6 @@ def test_missing_corner_is_an_outlier_in_support() -> None:
     assessment = assess_damage(metrics, upper - lower, AppConfig())
     assert assessment.condition is BoxCondition.DAMAGED
     assert assessment.routing is RoutingHint.ERROR_ZONE
+    assert assessment.report is not None
+    assert "corner:" in assessment.report.location
+    assert assessment.report.location.endswith("+z")

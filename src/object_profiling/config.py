@@ -84,6 +84,10 @@ class EstimatorConfig:
     max_view_plane_residual_m: float = 0.003
     max_uncertainty_m: float = 0.012
     cuboid_residual_scale_m: float = 0.012
+    # Puntos mas hacia dentro que esto no cuentan como fallo de registro: son
+    # el hueco de un defecto, no una vista desplazada. El envolvente (percentil)
+    # sigue midiendo L/W/H. El inspector usa esos puntos aparte.
+    inward_residual_ignore_m: float = 0.002
 
 
 @dataclass(frozen=True)
@@ -127,7 +131,7 @@ class MotionConfig:
 @dataclass(frozen=True)
 class DamageConfig:
     # Prevalencia operativa tras CP6. Los audits de desarrollo pasan 0.5.
-    rate: float = 0.1
+    rate: float = 0.5 # TODO: ajustar a 0.1
     severity_fraction: tuple[float, float] = (0.02, 0.25)
     relative_threshold: float = 0.05
     # Suelo absoluto: ruido de intactas en el entorno ideal es < 1 mm. El valor

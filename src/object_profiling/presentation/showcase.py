@@ -11,7 +11,6 @@ import numpy as np
 
 from ..config import AppConfig
 from ..contracts import ObjectDimensions
-from ..evaluation.checkpoint import MAXIMUM_BOX, MINIMUM_BOX
 from ..station.environment import BoxSpec, ProfilingEnvironment, generate_box_spec
 from ..station.pipeline import ProfilingResult, profile
 from .panels import (
@@ -33,11 +32,12 @@ TEXT_WIDTH = 440
 SHEET_WIDTH = CASE_TILE[0] * 2 + TEXT_WIDTH
 # Escala de las barras del panel agregado. El objetivo del plan es 5 mm de MAE.
 ERROR_BAR_LIMIT_MM = 5.0
+SHOWCASE_CASE_COUNT = 6
 
 
 @dataclass(frozen=True)
 class ShowcaseCase:
-    """Caja concreta del recorrido, elegida por contraste de forma."""
+    """Caja del recorrido. Si no trae spec, se genera con la seed del catalogo."""
 
     label: str
     seed: int
@@ -47,22 +47,16 @@ class ShowcaseCase:
         return self.box_spec or generate_box_spec(self.seed, config)
 
 
-def contrast_cases(config: AppConfig | None = None) -> tuple[ShowcaseCase, ...]:
-    """Seis cajas que cubren los extremos y las formas dificiles del rango.
+def contrast_cases(*, base_seed: int) -> tuple[ShowcaseCase, ...]:
+    """Seis cajas aleatorias del rango, en la rejilla de 5 mm.
 
-    Las seeds 72 y 731 se eligieron recorriendo el generador en busca de una caja
-    muy alargada y de una practicamente cubica; ambas siguen siendo
-    reproducibles a partir de su seed.
+    `generate_box_spec` ya recorta al rango y ajusta al catalogo. Las dimensiones
+    reales no salen de la capa de presentacion: el estimador solo ve RGB-D.
     """
 
-    config = config or AppConfig()
-    return (
-        ShowcaseCase("minima del rango", 0, MINIMUM_BOX),
-        ShowcaseCase("maxima del rango", 1, MAXIMUM_BOX),
-        ShowcaseCase("alargada  L/W 3.00", 72),
-        ShowcaseCase("casi cubica  L/W 1.00", 731),
-        ShowcaseCase("aleatoria", 42),
-        ShowcaseCase("aleatoria", 1000),
+    return tuple(
+        ShowcaseCase(f"aleatoria {index + 1}", base_seed + index)
+        for index in range(SHOWCASE_CASE_COUNT)
     )
 
 
@@ -94,7 +88,7 @@ def measure_case(
 ) -> ShowcaseOutcome:
     config = config or AppConfig()
     environment.load_box(case.spec(config))
-    # Ground truth leido en la capa de presentacion, solo para comparar.
+    # Ground truth solo para el panel de evaluacion. `profile()` no lo recibe.
     truth_m = environment.box_spec.dimensions_m.as_array()
     result = profile(environment, seed=case.seed, config=config, on_state=on_state, on_step=on_step)
     return ShowcaseOutcome(case, result, truth_m)
@@ -248,7 +242,7 @@ def compose_sheet(outcomes: list[ShowcaseOutcome]) -> np.ndarray:
         [
             (
                 "Object Profiling   medicion suspendida con trayectoria fija"
-                "   SCAN_YAW_0 / SCAN_YAW_90",
+                "   SCAN_YAW_0 / SCAN_YAW_90   cajas aleatorias 5 mm",
                 INK,
             )
         ],
@@ -265,11 +259,20 @@ def run_showcase(
     cases: tuple[ShowcaseCase, ...] | None = None,
     config: AppConfig | None = None,
     announce: bool = True,
+    seed: int | None = None,
 ) -> tuple[list[ShowcaseOutcome], np.ndarray]:
     """Mide varias cajas seguidas. Visual y headless comparten `profile()`."""
 
     config = config or AppConfig()
-    cases = cases or contrast_cases(config)
+    if cases is None:
+        if seed is None:
+            seed = int(np.random.default_rng().integers(0, 1_000_000))
+        cases = contrast_cases(base_seed=seed)
+        if announce:
+            print(
+                f"[showcase] seis cajas aleatorias  seed base {seed}"
+                f"  (reproducir con --seed {seed})"
+            )
     # Un solo entorno para todas las cajas: MuJoCo admite un visor por proceso,
     # y las dimensiones se reconfiguran sobre el mismo modelo.
     environment = ProfilingEnvironment.create(cases[0].spec(config), config, attach_box=False)
@@ -354,7 +357,7 @@ def summary(outcomes: list[ShowcaseOutcome]) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Mide varias cajas de contraste y compone una hoja con medido frente a real."
+        description="Mide seis cajas aleatorias del catalogo y compara medido frente a real."
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
@@ -362,6 +365,12 @@ def main() -> int:
     )
     mode.add_argument("--headless", action="store_true", help="Sin ventana. Modo por defecto.")
     parser.add_argument("--speed", type=float, default=1.0)
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed base de las seis cajas. Si se omite, se elige al azar.",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -371,7 +380,7 @@ def main() -> int:
     parser.add_argument("--report", type=Path, help="Ruta opcional para el resumen JSON.")
     args = parser.parse_args()
 
-    outcomes, sheet = run_showcase(visual=args.visual, speed=args.speed)
+    outcomes, sheet = run_showcase(visual=args.visual, speed=args.speed, seed=args.seed)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(args.output), sheet)
 

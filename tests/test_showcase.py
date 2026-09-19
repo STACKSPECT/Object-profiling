@@ -14,6 +14,7 @@ from object_profiling.presentation.panels import HEADER_HEIGHT
 from object_profiling.presentation.showcase import (
     CASE_TILE,
     SHEET_WIDTH,
+    SHOWCASE_CASE_COUNT,
     ShowcaseCase,
     compose_sheet,
     contrast_cases,
@@ -27,24 +28,36 @@ PACKAGE = Path(__file__).resolve().parents[1] / "src" / "object_profiling"
 CONFIG = AppConfig()
 
 
-def test_the_contrast_cases_really_cover_contrasting_shapes() -> None:
-    cases = contrast_cases(CONFIG)
+def _assert_catalogue_dimensions(dimensions, config: AppConfig) -> None:
+    step = config.catalogue_step_m
+    values = dimensions.as_array()
+    assert np.all(np.isclose(values / step, np.round(values / step)))
+    assert config.box_range.length_m[0] <= dimensions.length <= config.box_range.length_m[1]
+    assert config.box_range.width_m[0] <= dimensions.width <= config.box_range.width_m[1]
+    assert config.box_range.height_m[0] <= dimensions.height <= config.box_range.height_m[1]
+    assert dimensions.length >= dimensions.width
 
-    assert len(cases) == 6
-    shapes = {case.label: case.spec(CONFIG).dimensions_m for case in cases}
-    assert shapes["minima del rango"] == MINIMUM_BOX.dimensions_m
-    assert shapes["maxima del rango"] == MAXIMUM_BOX.dimensions_m
 
-    elongated = shapes["alargada  L/W 3.00"]
-    assert elongated.length / elongated.width > 2.6
+def test_the_showcase_draws_six_random_catalogue_boxes() -> None:
+    cases = contrast_cases(base_seed=42)
 
-    cubic = shapes["casi cubica  L/W 1.00"]
-    assert cubic.length / cubic.width < 1.06
-    assert 0.94 < cubic.height / cubic.width < 1.06
+    assert len(cases) == SHOWCASE_CASE_COUNT
+    assert [case.seed for case in cases] == list(range(42, 42 + SHOWCASE_CASE_COUNT))
+    shapes = [case.spec(CONFIG).dimensions_m for case in cases]
+    for dimensions in shapes:
+        _assert_catalogue_dimensions(dimensions, CONFIG)
+    assert len({dimensions.as_array().tobytes() for dimensions in shapes}) > 1
+
+
+def test_a_different_base_seed_draws_a_different_batch() -> None:
+    first = [case.spec(CONFIG).dimensions_m.as_array() for case in contrast_cases(base_seed=42)]
+    second = [case.spec(CONFIG).dimensions_m.as_array() for case in contrast_cases(base_seed=99)]
+
+    assert not all(np.allclose(left, right) for left, right in zip(first, second))
 
 
 def test_every_case_is_reproducible_from_its_definition() -> None:
-    first, second = contrast_cases(CONFIG), contrast_cases(CONFIG)
+    first, second = contrast_cases(base_seed=42), contrast_cases(base_seed=42)
 
     for left, right in zip(first, second):
         assert left.spec(CONFIG) == right.spec(CONFIG)
@@ -69,13 +82,13 @@ def test_load_box_retargets_the_same_model() -> None:
 
 @pytest.fixture(scope="module")
 def showcase():
-    return run_showcase(visual=False, announce=False)
+    return run_showcase(visual=False, announce=False, seed=42)
 
 
 def test_the_showcase_measures_every_case(showcase) -> None:
     outcomes, _sheet = showcase
 
-    assert len(outcomes) == 6
+    assert len(outcomes) == SHOWCASE_CASE_COUNT
     for outcome in outcomes:
         assert outcome.dimensions.valid is True, outcome.case.label
         assert outcome.error_mm is not None
@@ -111,13 +124,13 @@ def test_the_summary_aggregates_the_error(showcase) -> None:
     outcomes, _sheet = showcase
     report = summary(outcomes)
 
-    assert report["cases"] == 6
-    assert report["valid_profiles"] == 6
+    assert report["cases"] == SHOWCASE_CASE_COUNT
+    assert report["valid_profiles"] == SHOWCASE_CASE_COUNT
     errors = np.abs(np.asarray([outcome.error_mm for outcome in outcomes]))
     for index, axis in enumerate(("length", "width", "height")):
         assert report["mae_mm"][axis] == pytest.approx(float(np.mean(errors[:, index])))
     assert report["worst_absolute_error_mm"] == pytest.approx(float(np.max(errors)))
-    assert len(report["results"]) == 6
+    assert len(report["results"]) == SHOWCASE_CASE_COUNT
     assert report["results"][0]["prediction"]["schema_version"] == 3
 
 
@@ -143,6 +156,24 @@ def test_visual_and_headless_share_the_measurement_path() -> None:
     assert "estimate_cuboid" not in source
     assert "segment_foreground" not in source
     assert "launch_passive" in source
+
+
+def test_ground_truth_stays_out_of_the_estimator() -> None:
+    """Las aristas reales alimentan el panel, no `measure()` ni `profile()`."""
+
+    showcase = (PACKAGE / "presentation" / "showcase.py").read_text(encoding="utf-8")
+    pipeline = (PACKAGE / "station" / "pipeline.py").read_text(encoding="utf-8")
+    measurement = (PACKAGE / "measure" / "measurement.py").read_text(encoding="utf-8")
+
+    assert "box_spec.dimensions" not in pipeline
+    assert "environment.box_spec" not in pipeline.split("def profile", 1)[1]
+    assert "box_spec" not in measurement
+    assert "ground_truth" not in measurement
+    assert "generate_box_spec" not in measurement
+    assert "truth_m = environment.box_spec.dimensions_m.as_array()" in showcase
+    assert "profile(environment, seed=case.seed, config=config, on_state=on_state, on_step=on_step)" in showcase
+    assert "MINIMUM_BOX" not in showcase
+    assert "MAXIMUM_BOX" not in showcase
 
 
 def test_the_showcase_reuses_one_viewer() -> None:

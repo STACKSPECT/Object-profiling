@@ -99,6 +99,30 @@ Tiempo **simulado** (el del robot), p50:
 Dos poses ahorran ~0,8–0,9 s de tiempo de robot (~25 %), fondos incluidos. La
 pared del Mac no es el dato de estación.
 
+### Confirmación: protocolo EXP-007 con dos yaws
+
+Mismo protocolo que EXP-007 (seeds 1000–1099 y 5000–5199, 300 escenas), con el
+ciclo de producción de esta rama. `meets_targets` verdadero en ambos rangos.
+Snap a 5 mm: 300 / 300.
+
+| Eje | MAE | p95 | Máximo |
+|---|---:|---:|---:|
+| longitud | 0,016 mm | 0,021 mm | 0,023 mm |
+| anchura | 0,242 mm | 0,380 mm | 0,500 mm |
+| altura | 1,066 mm | 1,795 mm | 1,901 mm |
+
+300 / 300 válidos, reproducibles, peor error 1,901 mm (EXP-007 con tres poses:
+2,003 mm). La longitud mejora; la anchura sube ~0,06 mm MAE; la altura ~0,09 mm
+MAE. Sigue por debajo de medio paso de catálogo y del MAE de 5 mm del plan.
+Ciclo de pared p50 ~0,23 s (EXP-007: 0,28 s).
+
+```bash
+python -m object_profiling.evaluation.benchmark --start 1000 --count 100 \
+  --output results/benchmark-1000-1099-two-yaw.json
+python -m object_profiling.evaluation.benchmark --start 5000 --count 200 --quiet \
+  --output results/benchmark-5000-5199-two-yaw.json
+```
+
 ## Observaciones y fallos
 
 - Tilt solo: mejor altura cuando es válido (ve la base), pero 19 / 50 rechazos.

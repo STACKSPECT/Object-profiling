@@ -150,8 +150,8 @@ def test_extent_disagreement_is_zero_for_identical_views() -> None:
     assert view_extent_disagreement_m(cloud) == pytest.approx(np.zeros(3))
 
 
-def test_three_views_register_into_a_single_rigid_cloud() -> None:
-    """La caja esta soldada al terminal, asi que las tres nubes deben coincidir."""
+def test_the_fixed_views_register_into_a_single_rigid_cloud() -> None:
+    """La caja esta soldada al terminal, asi que las nubes de cada pose deben coincidir."""
 
     report = audit_registration_suite()
 
@@ -159,7 +159,7 @@ def test_three_views_register_into_a_single_rigid_cloud() -> None:
     assert report["frame_id"] == TOOL_FRAME_ID
     assert len(report["records"]) == 3
     for record in report["records"]:
-        assert record["views_used"] == ("SCAN_YAW_0", "SCAN_YAW_90", "SCAN_TILT_35")
+        assert record["views_used"] == ("SCAN_YAW_0", "SCAN_YAW_90")
         assert record["fused_points"] > 10_000
         # Cada vista por separado se retroproyecta con error de micras.
         for per_view in record["per_view_registration"]:

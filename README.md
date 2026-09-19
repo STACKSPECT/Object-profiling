@@ -20,7 +20,6 @@ CALIBRATE_BACKGROUND
 -> ATTACH_SUCTION
 -> SCAN_YAW_0
 -> SCAN_YAW_90
--> SCAN_TILT_35
 -> RETURNED_VERTICAL
 -> ESTIMATE
 -> VALIDATE
@@ -28,10 +27,12 @@ CALIBRATE_BACKGROUND
 ```
 
 La trayectoria es fija: no elige vistas según el resultado. Todas las cajas
-recorren las mismas tres poses.
+recorren las mismas dos poses (`SCAN_YAW_0` y `SCAN_YAW_90`; EXP-008).
 
-Medido sobre 300 escenas de dimensiones aleatorias (seeds 1000–1099 y
-5000–5199), en el entorno ideal y sin ruido:
+La tabla siguiente es EXP-007 (ciclo de tres poses). En esta rama el ciclo es
+el de dos yaw; calidad y tiempo en
+[EXP-008](docs/findings/EXP-008-ablacion-poses-escaneo.md). EXP-007, 300 escenas
+(seeds 1000–1099 y 5000–5199), entorno ideal y sin ruido:
 
 | Eje | MAE | p95 | Máximo |
 |---|---:|---:|---:|

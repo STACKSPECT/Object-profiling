@@ -175,18 +175,19 @@ def _mask_window(mask: np.ndarray, aspect: float, padding: int = 26) -> tuple[sl
 def _case_row(outcome: ShowcaseOutcome) -> np.ndarray:
     views = outcome.result.views
     row_height = CASE_TILE[1] + HEADER_HEIGHT
-    if views:
-        mask = views[0].mask
-        rows, columns = _mask_window(mask, CASE_TILE[0] / CASE_TILE[1])
-        rgb = cv2.cvtColor(views[0].rgb, cv2.COLOR_RGB2BGR)[rows, columns]
-        mask_image = (mask[rows, columns].astype(np.uint8) * 255)
-    else:
-        rgb = np.zeros((CASE_TILE[1], CASE_TILE[0], 3), dtype=np.uint8)
-        mask_image = np.zeros((CASE_TILE[1], CASE_TILE[0]), dtype=np.uint8)
+
+    def _view_rgb(index: int, fallback: str) -> np.ndarray:
+        if index >= len(views):
+            return tile(np.zeros((CASE_TILE[1], CASE_TILE[0], 3), dtype=np.uint8), fallback, CASE_TILE)
+        view = views[index]
+        rows, columns = _mask_window(view.mask, CASE_TILE[0] / CASE_TILE[1])
+        rgb = cv2.cvtColor(view.rgb, cv2.COLOR_RGB2BGR)[rows, columns]
+        return tile(rgb, f"RGB  {view.pose_name}", CASE_TILE)
+
     return np.hstack(
         [
-            tile(rgb, "RGB  SCAN_YAW_0", CASE_TILE),
-            tile(mask_image, "Mascara observable", CASE_TILE),
+            _view_rgb(0, "RGB  SCAN_YAW_0"),
+            _view_rgb(1, "RGB  SCAN_YAW_90"),
             text_panel(_comparison_lines(outcome), TEXT_WIDTH, row_height, scale=0.44),
         ]
     )
@@ -247,7 +248,7 @@ def compose_sheet(outcomes: list[ShowcaseOutcome]) -> np.ndarray:
         [
             (
                 "Object Profiling   medicion suspendida con trayectoria fija"
-                "   SCAN_YAW_0 / SCAN_YAW_90 / SCAN_TILT_35",
+                "   SCAN_YAW_0 / SCAN_YAW_90",
                 INK,
             )
         ],

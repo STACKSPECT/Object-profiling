@@ -52,13 +52,12 @@ def test_a_rejected_profile_still_renders() -> None:
 def test_the_mosaic_holds_one_tile_per_pose_of_the_fixed_sequence() -> None:
     result, panels = run_demo(SEED, visual=False, speed=1.0)
 
-    assert len(result.views) == 3
+    assert len(result.views) == 2
     assert [view.pose_name for view in result.views] == [
         "SCAN_YAW_0",
         "SCAN_YAW_90",
-        "SCAN_TILT_35",
     ]
-    assert panels.shape[1] == TILE[0] * len(result.views)
+    assert panels.shape[1] == TILE[0] * 3
 
 
 def test_visual_and_headless_share_the_measurement_path() -> None:

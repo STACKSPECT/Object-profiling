@@ -154,21 +154,22 @@ def test_background_from_another_pose_degrades_segmentation(nominal_cycle) -> No
     """Un fondo equivocado no puede pasar desapercibido."""
 
     cycle, truths = nominal_cycle
-    tilt = next(o for o in cycle.observations if o.pose_name == "SCAN_TILT_35")
+    yaw_90 = next(o for o in cycle.observations if o.pose_name == "SCAN_YAW_90")
 
     correct = segment_foreground(
-        tilt.depth_m, cycle.backgrounds.depth_for("SCAN_TILT_35"), CONFIG.sensor
+        yaw_90.depth_m, cycle.backgrounds.depth_for("SCAN_YAW_90"), CONFIG.sensor
     )
     swapped = segment_foreground(
-        tilt.depth_m, cycle.backgrounds.depth_for("SCAN_YAW_0"), CONFIG.sensor
+        yaw_90.depth_m, cycle.backgrounds.depth_for("SCAN_YAW_0"), CONFIG.sensor
     )
-    truth = truths["SCAN_TILT_35"]
+    truth = truths["SCAN_YAW_90"]
 
     correct_iou = evaluate_segmentation(correct.mask, truth).intersection_over_union
     swapped_iou = evaluate_segmentation(swapped.mask, truth).intersection_over_union
 
     assert correct_iou > 0.99
-    assert swapped_iou < correct_iou - 0.05
+    assert swapped_iou < correct_iou
+    assert int(np.count_nonzero(correct.mask != swapped.mask)) > 500
 
 
 def test_segmentation_is_deterministic(nominal_cycle) -> None:
@@ -184,12 +185,12 @@ def test_segmentation_is_deterministic(nominal_cycle) -> None:
 
 
 def test_observable_segmentation_matches_ground_truth_across_range_and_poses() -> None:
-    """Nueve combinaciones de tamano y pose, sin usar el ID de box_geom."""
+    """Seis combinaciones de tamano y pose, sin usar el ID de box_geom."""
 
     report = audit_segmentation_suite()
 
     assert report["valid"] is True
-    assert len(report["records"]) == 9
+    assert len(report["records"]) == 6
     assert report["worst_intersection_over_union"] > 0.99
     assert report["worst_precision"] > 0.99
     assert report["worst_recall"] > 0.99

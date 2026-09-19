@@ -89,7 +89,7 @@ def test_each_pose_needs_its_own_background() -> None:
     backgrounds = _capture()
     yaw_0 = backgrounds.depth_for("SCAN_YAW_0")
 
-    for pose_name in ("SCAN_YAW_90", "SCAN_TILT_35"):
+    for pose_name in ("SCAN_YAW_90",):
         differing = int(np.count_nonzero(np.abs(backgrounds.depth_for(pose_name) - yaw_0) > 1e-4))
         assert differing > 5_000, f"{pose_name} reutilizaria el fondo de SCAN_YAW_0"
 

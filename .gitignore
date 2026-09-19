@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Resultados generados; los hallazgos resumidos sí se documentan en docs/findings.
+artifacts/
+results/
+runs/
+

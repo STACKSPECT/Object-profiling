@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: object-profiling
+Version: 0.1.0
+Summary: Suspended cuboid measurement with a UR10e in MuJoCo
+Requires-Python: >=3.11
+Requires-Dist: mujoco==3.13.0
+Requires-Dist: numpy==2.4.6
+Requires-Dist: opencv-python==4.14.0.94
+Requires-Dist: open3d==0.20.0
+Provides-Extra: dev
+Requires-Dist: pytest<10,>=8; extra == "dev"

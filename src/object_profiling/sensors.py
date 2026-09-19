@@ -17,7 +17,7 @@ class RGBDSensor:
     def close(self) -> None:
         self.renderer.close()
 
-    def capture(self, angle_deg: int) -> CameraObservation:
+    def capture(self, pose_name: str, *, yaw_deg: int, tilt_deg: int) -> CameraObservation:
         env = self.environment
         self.renderer.disable_depth_rendering()
         self.renderer.update_scene(env.data, camera=self.camera_name)
@@ -39,7 +39,9 @@ class RGBDSensor:
         transform[:3, 3] = env.data.cam_xpos[camera_id]
         return CameraObservation(
             timestamp_s=float(env.data.time),
-            angle_deg=angle_deg,
+            pose_name=pose_name,
+            target_yaw_deg=yaw_deg,
+            target_tilt_deg=tilt_deg,
             rgb=rgb,
             depth_m=depth,
             intrinsics=intrinsics,

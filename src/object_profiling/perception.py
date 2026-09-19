@@ -48,4 +48,13 @@ def observation_to_scan_view(observation: CameraObservation, background_depth_m:
     world_to_tool = np.linalg.inv(observation.tool_to_world)
     homogeneous = np.column_stack([points_world, np.ones(points_world.shape[0])])
     points_tool = (world_to_tool @ homogeneous.T).T[:, :3]
-    return ScanView(observation.angle_deg, observation.rgb, observation.depth_m, segmentation.mask, points_tool, False), None
+    return ScanView(
+        observation.pose_name,
+        observation.target_yaw_deg,
+        observation.target_tilt_deg,
+        observation.rgb,
+        observation.depth_m,
+        segmentation.mask,
+        points_tool,
+        segmentation.touches_border,
+    ), None

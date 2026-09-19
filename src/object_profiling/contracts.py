@@ -7,6 +7,9 @@ from typing import Any
 import numpy as np
 
 
+OBJECT_DIMENSIONS_SCHEMA_VERSION = 2
+
+
 class RejectionReason(StrEnum):
     INSUFFICIENT_FOREGROUND = "INSUFFICIENT_FOREGROUND"
     FRAME_BORDER_CONTACT = "FRAME_BORDER_CONTACT"
@@ -16,20 +19,31 @@ class RejectionReason(StrEnum):
     HIGH_UNCERTAINTY = "HIGH_UNCERTAINTY"
     MOTION_TIMEOUT = "MOTION_TIMEOUT"
     RENDER_FAILURE = "RENDER_FAILURE"
+    MISSING_BACKGROUND = "MISSING_BACKGROUND"
+    INSUFFICIENT_FACE_COVERAGE = "INSUFFICIENT_FACE_COVERAGE"
 
 
 @dataclass(frozen=True)
-class Dimensions3D:
+class Extent3D:
+    """Tripleta por eje sin orden impuesto.
+
+    Incertidumbres y errores se expresan asi porque la incertidumbre de la
+    longitud puede ser menor que la de la anchura.
+    """
+
     length: float
     width: float
     height: float
 
+    def as_array(self) -> np.ndarray:
+        return np.asarray([self.length, self.width, self.height], dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class Dimensions3D(Extent3D):
     def __post_init__(self) -> None:
         if self.length < self.width:
             raise ValueError("length must be greater than or equal to width")
-
-    def as_array(self) -> np.ndarray:
-        return np.asarray([self.length, self.width, self.height], dtype=np.float64)
 
 
 @dataclass(frozen=True)
@@ -51,9 +65,20 @@ class CameraIntrinsics:
 
 
 @dataclass(frozen=True)
+class ViewDescriptor:
+    """Vista utilizada, identificada por nombre de pose y angulos en grados."""
+
+    pose_name: str
+    yaw_deg: int
+    tilt_deg: int
+
+
+@dataclass(frozen=True)
 class CameraObservation:
     timestamp_s: float
-    angle_deg: int
+    pose_name: str
+    target_yaw_deg: int
+    target_tilt_deg: int
     rgb: np.ndarray
     depth_m: np.ndarray
     intrinsics: CameraIntrinsics
@@ -63,7 +88,9 @@ class CameraObservation:
 
 @dataclass(frozen=True)
 class ScanView:
-    angle_deg: int
+    pose_name: str
+    target_yaw_deg: int
+    target_tilt_deg: int
     rgb: np.ndarray
     depth_m: np.ndarray
     mask: np.ndarray
@@ -73,21 +100,21 @@ class ScanView:
 
 @dataclass(frozen=True)
 class ObjectDimensions:
-    schema_version: int
     object_id: str
     timestamp_s: float
     frame_id: str
     dimensions_m: Dimensions3D | None
-    uncertainty_m: Dimensions3D | None
-    views_used_deg: tuple[int, ...]
+    uncertainty_m: Extent3D | None
+    views_used: tuple[ViewDescriptor, ...]
     confidence: float
     valid: bool
     rejection_reason: RejectionReason | None
+    schema_version: int = OBJECT_DIMENSIONS_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["rejection_reason"] = self.rejection_reason.value if self.rejection_reason else None
-        payload["views_used_deg"] = list(self.views_used_deg)
+        payload["views_used"] = [asdict(view) for view in self.views_used]
         return payload
 
 
@@ -96,7 +123,7 @@ class EvaluationRecord:
     seed: int
     ground_truth_m: Dimensions3D
     prediction: ObjectDimensions
-    absolute_error_m: Dimensions3D | None
+    absolute_error_m: Extent3D | None
     perception_latency_s: float
 
     def to_dict(self) -> dict[str, Any]:

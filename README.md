@@ -10,7 +10,7 @@ consumibles por el resto del sistema. Este repositorio sí incluye el agarre y
 los movimientos del UR10e necesarios para medir; no incluye el cálculo del
 centro de masas, la reconstrucción del palé ni la planificación de colocación.
 
-## Estado actual: checkpoint de movimiento fijo
+## Estado actual: movimiento fijo y cámara RGB-D
 
 La implementación se detiene deliberadamente en este flujo:
 
@@ -25,8 +25,13 @@ ATTACH_SUCTION
 La demo usa una caja de 0,30 × 0,20 × 0,15 m y 2 kg, presentada bajo las cinco
 copas. La misma trayectoria se verifica automáticamente con las cajas mínima,
 nominal y máxima del rango. La succión se abstrae mediante un `equality weld`
-rígido de MuJoCo. No se detecta todavía la caja con cámaras y no se calculan sus
-medidas.
+rígido de MuJoCo. La cámara ya captura RGB y profundidad en las tres poses, pero
+todavía no se calculan las medidas.
+
+La cámara fija `scan_rgbd_cam` usa una vista diagonal baja para reducir la
+oclusión del terminal y observar dos caras laterales. Su auditoría usa el ID de
+la caja del simulador exclusivamente para medir cobertura; ese ID no se entrega
+al futuro estimador.
 
 El modo headless valida que la caja se eleve al menos 0,10 m, que el robot
 alcance todas las poses, vuelva a vertical y que la transformación relativa terminal-caja no derive
@@ -47,6 +52,18 @@ mjpython -m object_profiling.checkpoint --visual --seed 42 --speed 1.0
 `--speed` controla únicamente la reproducción del visor: `2.0` muestra la
 secuencia al doble de velocidad y `0.5` a la mitad. No modifica el timestep, la
 trayectoria simulada ni las métricas físicas.
+
+Auditar el encuadre de las cajas mínima, nominal y máxima y guardar las nueve
+capturas:
+
+```bash
+object-profiling-camera-audit \
+  --artifacts artifacts/camera-audit \
+  --output results/camera-audit.json
+```
+
+Este comando necesita acceso gráfico aunque no abra una ventana, porque MuJoCo
+crea un contexto OpenGL para renderizar.
 
 La ventana muestra el mismo flujo que usa el test headless. En la terminal se
 imprimen los cambios de estado y, al terminar, el informe JSON. Un resultado
@@ -82,3 +99,4 @@ python -m pytest -p no:cacheprovider
 - [Registro de experimentos](docs/findings/README.md)
 - [EXP-000: agarre, elevación y rotación](docs/findings/EXP-000-agarre-elevacion-rotacion.md)
 - [EXP-001: trayectoria fija con inclinación](docs/findings/EXP-001-trayectoria-fija-inclinacion-35.md)
+- [EXP-002: cámara RGB-D fija y cobertura](docs/findings/EXP-002-camara-rgbd-cobertura.md)

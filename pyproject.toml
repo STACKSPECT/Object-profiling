@@ -19,6 +19,7 @@ dev = ["pytest>=8,<10"]
 
 [project.scripts]
 object-profiling-checkpoint = "object_profiling.checkpoint:main"
+object-profiling-camera-audit = "object_profiling.camera_audit:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -15,6 +15,7 @@ from .config import AppConfig
 from .contracts import BoxSpec, Dimensions3D
 from .controller import MotionError, ScanPoseController
 from .environment import ProfilingEnvironment
+from .poses import RETURN_POSE, SCAN_POSES
 
 
 NOMINAL_BOX = BoxSpec(
@@ -157,36 +158,24 @@ def _execute_checkpoint(
             )
         )
 
+    motion = environment.config.motion
+    commands = (
+        ("LIFT", SCAN_POSES[0], True),
+        ("ROTATE_YAW_90", SCAN_POSES[1], False),
+        ("TILT_35", SCAN_POSES[2], False),
+        ("RETURN_VERTICAL", RETURN_POSE, False),
+    )
+
     try:
-        execute_pose(
-            "LIFT",
-            "SCAN_YAW_0",
-            environment.config.motion.target(0),
-            yaw_deg=0,
-            tilt_deg=0,
-            allow_support_contact=True,
-        )
-        execute_pose(
-            "ROTATE_YAW_90",
-            "SCAN_YAW_90",
-            environment.config.motion.target(90),
-            yaw_deg=90,
-            tilt_deg=0,
-        )
-        execute_pose(
-            "TILT_35",
-            "SCAN_TILT_35",
-            environment.config.motion.tilt_target(),
-            yaw_deg=0,
-            tilt_deg=35,
-        )
-        execute_pose(
-            "RETURN_VERTICAL",
-            "RETURNED_VERTICAL",
-            environment.config.motion.target(0),
-            yaw_deg=0,
-            tilt_deg=0,
-        )
+        for command_name, pose, allow_support_contact in commands:
+            execute_pose(
+                command_name,
+                pose.name,
+                pose.target_qpos(motion),
+                yaw_deg=pose.yaw_deg,
+                tilt_deg=pose.tilt_deg,
+                allow_support_contact=allow_support_contact,
+            )
     except MotionError as error:
         failure_reason = error.reason.value
 
@@ -195,12 +184,8 @@ def _execute_checkpoint(
     max_rotation_drift = max((state.rotation_drift_deg for state in states), default=float("inf"))
     max_joint_error = max((state.max_joint_error_rad for state in states), default=float("inf"))
     lifted_distance = final_box_z - initial_box_z
-    completed_sequence = [state.name for state in states] == [
-        "SCAN_YAW_0",
-        "SCAN_YAW_90",
-        "SCAN_TILT_35",
-        "RETURNED_VERTICAL",
-    ]
+    expected_sequence = [pose.name for pose in SCAN_POSES] + [RETURN_POSE.name]
+    completed_sequence = [state.name for state in states] == expected_sequence
     unexpected_contact_samples = sum(state.unexpected_box_contact_samples for state in states)
     success = bool(
         failure_reason is None

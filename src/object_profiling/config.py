@@ -25,8 +25,8 @@ class SensorConfig:
     foreground_margin_m: float = 0.004
     min_component_pixels: int = 500
     border_margin_px: int = 3
-    scan_center_world_m: tuple[float, float, float] = (-0.174, 0.691, 0.535)
-    scan_half_extent_m: tuple[float, float, float] = (0.34, 0.34, 0.30)
+    scan_center_world_m: tuple[float, float, float] = (-0.174, 0.735, 0.650)
+    scan_half_extent_m: tuple[float, float, float] = (0.34, 0.34, 0.34)
 
 
 @dataclass(frozen=True)
@@ -85,5 +85,3 @@ class AppConfig:
     sensor: SensorConfig = field(default_factory=SensorConfig)
     estimator: EstimatorConfig = field(default_factory=EstimatorConfig)
     motion: MotionConfig = field(default_factory=MotionConfig)
-    required_views_deg: tuple[int, ...] = (0, 90)
-    fallback_view_deg: int = 180

@@ -14,7 +14,6 @@ from object_profiling.measure.geometry import (
     estimate_cuboid,
     face_coverage,
 )
-from object_profiling.evaluation.audits.geometry import METHODS, audit_geometry_suite
 from object_profiling.measure.registration import fuse_scan_views
 
 CONFIG = AppConfig()
@@ -229,33 +228,3 @@ def test_a_larger_bootstrap_budget_does_not_change_the_dimensions() -> None:
 def test_the_convention_rejects_a_width_larger_than_the_length() -> None:
     with pytest.raises(ValueError):
         Dimensions3D(0.10, 0.20, 0.15)
-
-
-def test_rendered_boxes_are_measured_within_the_catalogue_half_step() -> None:
-    report = audit_geometry_suite(seed=42)
-
-    assert report["valid"] is True
-    # Sin SCAN_TILT_35 la altura sube a ~1,1 mm en el extremo del rango (EXP-008).
-    assert report["worst_absolute_error_mm"] < 2.5
-    assert report["uncertainty_covers_error"] is True
-    for record in report["records"]:
-        assert record["rejection_reason"] is None
-        assert record["weakest_face_support"] >= CONFIG.estimator.minimum_face_support_points
-
-
-def test_the_axis_aligned_baseline_beats_the_alternatives() -> None:
-    """La comparacion sostiene la eleccion del baseline con numeros."""
-
-    report = audit_geometry_suite(seed=42)
-    worst = report["worst_error_by_method_mm"]
-
-    assert set(worst) == set(METHODS)
-    baseline = worst["robust_extents"]
-    # Desde abajo la cara inferior esta llena y raw_extents puede ganar decimas
-    # de mm. Se conserva el percentil porque recorta colas de silueta.
-    assert baseline < 2.5
-    assert baseline <= worst["trimmed_extents_0p5"]
-    assert baseline <= worst["plane_refined"]
-    # Las componentes principales no recuperan los ejes de la caja: la nube esta
-    # muy sesgada hacia las caras que la camara ve mejor.
-    assert worst["principal_axes"] > 10.0

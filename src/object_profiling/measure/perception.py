@@ -1,3 +1,8 @@
+"""MERGE: segmentacion RGB-D y nube en el marco del terminal.
+
+In: `CameraObservation` + profundidad de fondo. Out: `ScanView` o rechazo.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -134,6 +139,7 @@ def observation_to_scan_view(
     background_depth_m: np.ndarray,
     config: AppConfig,
 ) -> tuple[ScanView | None, RejectionReason | None]:
+    """In: una captura y su fondo. Out: vista en TCP o motivo de rechazo."""
     segmentation = segment_foreground(observation.depth_m, background_depth_m, config.sensor)
     if segmentation.reason is not None:
         return None, segmentation.reason

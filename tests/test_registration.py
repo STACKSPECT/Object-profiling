@@ -12,7 +12,6 @@ from object_profiling.measure.registration import (
     view_extent_disagreement_m,
     view_plane_residuals_m,
 )
-from object_profiling.evaluation.audits.registration import audit_registration_suite
 from object_profiling.measure.backproject import backproject_depth
 from object_profiling.contracts import CameraIntrinsics, CameraObservation
 
@@ -148,21 +147,3 @@ def test_extent_disagreement_is_zero_for_identical_views() -> None:
     cloud = fuse_scan_views([_view("A", 0, 0, points), _view("B", 90, 0, points)])
 
     assert view_extent_disagreement_m(cloud) == pytest.approx(np.zeros(3))
-
-
-def test_the_fixed_views_register_into_a_single_rigid_cloud() -> None:
-    """La caja esta soldada al terminal, asi que las nubes de cada pose deben coincidir."""
-
-    report = audit_registration_suite()
-
-    assert report["valid"] is True
-    assert report["frame_id"] == TOOL_FRAME_ID
-    assert len(report["records"]) == 3
-    for record in report["records"]:
-        assert record["views_used"] == ("SCAN_YAW_0", "SCAN_YAW_90")
-        assert record["fused_points"] > 10_000
-        # Cada vista por separado se retroproyecta con error de micras.
-        for per_view in record["per_view_registration"]:
-            assert per_view["p95_surface_distance_m"] < 1e-4
-        # La fusion anade el desplazamiento residual de la caja entre poses.
-        assert record["fused_registration"]["p95_surface_distance_m"] < 1e-3

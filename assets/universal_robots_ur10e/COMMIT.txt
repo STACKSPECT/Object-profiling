@@ -1,5 +1,0 @@
-MuJoCo Menagerie source commit:
-8161bba264d7fa7c99ca301e91e7fb44737676ad
-
-Source:
-https://github.com/google-deepmind/mujoco_menagerie/tree/8161bba264d7fa7c99ca301e91e7fb44737676ad/universal_robots_ur10e

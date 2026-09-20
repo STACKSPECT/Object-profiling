@@ -1,8 +1,7 @@
-"""Inspeccion geometrica de dano sobre la nube fusionada.
+"""MERGE: inspeccion geometrica de dano sobre la nube fusionada.
 
-No importa MuJoCo ni el ground truth de escena. Las senales se calculan contra
-el cuboide ya ajustado: planaridad de cara, rectitud de arista, ocupacion de
-esquina, agrupacion del residuo hacia dentro y el residuo global.
+No importa MuJoCo ni el ground truth de escena. Senales contra el cuboide
+ajustado: planaridad, rectitud, ocupacion de esquina y residuo hacia dentro.
 """
 
 from __future__ import annotations
@@ -140,6 +139,7 @@ class DamageAssessment:
 
 
 def inspect_cloud(cloud: FusedCloud, estimate: CuboidEstimate, config: AppConfig) -> InspectionMetrics:
+    """In: nube fusionada (medida + yaw 180) y cuboide. Out: senales por cara/arista/esquina."""
     points = cloud.points_m
     lower, upper = estimate.lower_m, estimate.upper_m
     residual = distance_to_box_surface_m(points, lower, upper)
@@ -195,11 +195,13 @@ def inspect_cloud(cloud: FusedCloud, estimate: CuboidEstimate, config: AppConfig
 
 
 def stacking_threshold_m(extent_m: np.ndarray, config: AppConfig) -> float:
+    """In: L/W/H del cuboide. Out: umbral en metros (`max(5% del lado corto, 3 mm)`)."""
     shortest = float(np.min(extent_m))
     return max(config.damage.relative_threshold * shortest, config.damage.absolute_floor_m)
 
 
 def assess_damage(metrics: InspectionMetrics, extent_m: np.ndarray, config: AppConfig) -> DamageAssessment:
+    """In: senales de `inspect_cloud` y extension. Out: `condition`, `routing`, `DamageReport`."""
     threshold = stacking_threshold_m(extent_m, config)
     supports = (
         np.asarray([metrics.corner_support[index] for index in ANTI_GRASP_CORNER_INDICES], dtype=np.float64)

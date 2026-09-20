@@ -1,39 +1,17 @@
+"""Umbrales de sensor, estimador y dano. Sin escena ni qpos de robot."""
+
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
-from pathlib import Path
-
-import numpy as np
-
-
-def _path_for_mujoco(path: Path) -> Path:
-    """MuJoCo's C XML parser cannot open Unicode paths on Windows."""
-
-    resolved = path.resolve()
-    if os.name != "nt":
-        return resolved
-    import ctypes
-
-    buffer = ctypes.create_unicode_buffer(32768)
-    length = ctypes.windll.kernel32.GetShortPathNameW(str(resolved), buffer, len(buffer))
-    if length:
-        return Path(buffer.value)
-    return resolved
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SCENE_PATH = _path_for_mujoco(
-    PROJECT_ROOT / "assets" / "universal_robots_ur10e" / "profiling_scene.xml"
-)
 
 
 @dataclass(frozen=True)
 class BoxRange:
+    """Rango declarado de cajas. `estimate_cuboid` rechaza fuera de el."""
+
     length_m: tuple[float, float] = (0.15, 0.40)
     width_m: tuple[float, float] = (0.12, 0.30)
     height_m: tuple[float, float] = (0.08, 0.25)
-    mass_kg: tuple[float, float] = (0.5, 5.0)
 
 
 @dataclass(frozen=True)
@@ -52,7 +30,6 @@ class SensorConfig:
     # observada define. Con 0, `interior_mask` coincide con la mascara completa
     # y es la que se retroproyecta. No reactivar: 2 px costaban ~5 mm de anchura.
     mask_erosion_px: int = 0
-    scan_center_world_m: tuple[float, float, float] = (-0.174, 0.735, 0.650)
     # Holgura del volumen de recorte sobre el tamano maximo de caja declarado.
     tool_volume_margin_m: float = 0.04
     # Separacion entre el marco del terminal y el plano de contacto de las copas,
@@ -91,51 +68,9 @@ class EstimatorConfig:
 
 
 @dataclass(frozen=True)
-class MotionConfig:
-    home_qpos: tuple[float, ...] = (-1.5708, -1.5708, 1.5708, -1.5708, -1.5708, 0.0)
-    # Solucion IK validada para elevar el TCP 0.12 m manteniendo su orientacion.
-    lift_qpos: tuple[float, ...] = (
-        -1.57080019,
-        -1.54995221,
-        1.33798071,
-        -1.35883691,
-        -1.57079971,
-        -0.00000019,
-    )
-    # IK offline: inclinacion fija de 35 grados alrededor del eje X local del
-    # terminal, manteniendo la posicion del TCP de la pose elevada.
-    tilt_35_qpos: tuple[float, ...] = (
-        -1.57080030,
-        -1.62733782,
-        1.56764639,
-        -2.12198114,
-        -1.57079896,
-        -0.00000221,
-    )
-    trajectory_duration_s: float = 0.65
-    settle_duration_s: float = 0.25
-    joint_error_rad: float = 0.025
-    joint_velocity_rad_s: float = 0.04
-    timeout_s: float = 3.0
-
-    def target(self, angle_deg: int, *, lifted: bool = True) -> np.ndarray:
-        base = self.lift_qpos if lifted else self.home_qpos
-        target = np.asarray(base, dtype=np.float64).copy()
-        target[-1] += np.deg2rad(float(angle_deg))
-        return target
-
-    def tilt_target(self) -> np.ndarray:
-        return np.asarray(self.tilt_35_qpos, dtype=np.float64).copy()
-
-
-@dataclass(frozen=True)
 class DamageConfig:
-    # Prevalencia operativa tras CP6. Los audits de desarrollo pasan 0.5.
-    rate: float = 0.5 # TODO: ajustar a 0.1
-    severity_fraction: tuple[float, float] = (0.02, 0.25)
     relative_threshold: float = 0.05
-    # Suelo absoluto: ruido de intactas en el entorno ideal es < 1 mm. El valor
-    # se revisa con la distribucion de CP3; 3 mm deja margen sobre ese suelo.
+    # Suelo absoluto: ruido de intactas en el entorno ideal es < 1 mm.
     absolute_floor_m: float = 0.003
     corner_radius_m: float = 0.020
     edge_radius_m: float = 0.004
@@ -151,5 +86,4 @@ class AppConfig:
     box_range: BoxRange = field(default_factory=BoxRange)
     sensor: SensorConfig = field(default_factory=SensorConfig)
     estimator: EstimatorConfig = field(default_factory=EstimatorConfig)
-    motion: MotionConfig = field(default_factory=MotionConfig)
     damage: DamageConfig = field(default_factory=DamageConfig)

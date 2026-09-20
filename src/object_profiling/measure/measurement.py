@@ -1,8 +1,7 @@
-"""Medicion pura: observaciones dentro, `ObjectDimensions` fuera.
+"""MERGE: medicion pura. Observaciones dentro, `ObjectDimensions` fuera.
 
-Este modulo no importa MuJoCo ni el entorno de simulacion. Es el punto de
-integracion: cualquier consumidor que pueda producir `CameraObservation` y un
-`BackgroundSet` puede medir, sin arrastrar la escena de este repositorio.
+No importa MuJoCo. Cualquier escena que produzca `CameraObservation` y un
+`BackgroundSet` puede llamar a `measure()`.
 """
 
 from __future__ import annotations
@@ -41,7 +40,7 @@ GRASP_FACE = "-z"
 
 @dataclass(frozen=True)
 class MeasurementResult:
-    """Salida publica mas los diagnosticos que no forman parte del contrato."""
+    """Salida de `measure()`: contrato publico mas diagnosticos internos."""
 
     dimensions: ObjectDimensions
     estimate: CuboidEstimate | None
@@ -141,14 +140,12 @@ def measure(
     bootstrap_seed: int = DEFAULT_BOOTSTRAP_SEED,
     inspection_observations: Sequence[CameraObservation] = (),
 ) -> MeasurementResult:
-    """Segmenta, registra, ajusta el cuboide y valida.
+    """P3+P4: segmenta, registra, ajusta el cuboide, inspecciona dano y valida.
 
-    No recibe el entorno de simulacion, solo observaciones y fondos. Es lo que
-    hace la medicion trasladable a otra escena.
-
-    `observations` alimentan L/W/H. `inspection_observations` se fusionan
-    solo para el inspector, para cubrir las caras que las vistas de medida
-    no ven (el +y del yaw 180 desde la camara baja).
+    In: `observations` (L/W/H), `backgrounds` por pose, `config`, `object_id`.
+    `inspection_observations` (yaw 180) se fusionan solo para el inspector.
+    Out: `MeasurementResult.dimensions` (`ObjectDimensions` schema 4).
+    No mueve el robot.
     """
 
     config = config or AppConfig()

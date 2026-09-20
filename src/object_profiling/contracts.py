@@ -1,10 +1,7 @@
-"""Contrato publico de Object Profiling.
+"""Contratos publicos de Object Profiling.
 
-Este modulo es la frontera con `hackspain/Simulation`. Contiene lo que el
-consumidor necesita construir (`CameraObservation`) y lo que recibe
-(`ObjectDimensions`). No contiene tipos de generacion de escena ni de
-evaluacion: `BoxSpec` vive en `environment.py`, `ScanView` en `perception.py` y
-`EvaluationRecord` en `evaluation.py`.
+El integrador construye `CameraObservation` y recibe `ObjectDimensions` +
+`HeldBoxHandoff`. `ScanView` es interno de `measure/perception.py`.
 """
 
 from __future__ import annotations
@@ -22,6 +19,7 @@ AXIS_NAMES = ("x", "y", "z")
 
 
 class RejectionReason(StrEnum):
+    """Motivo de rechazo de la *medida* (no de la apilabilidad)."""
     INSUFFICIENT_FOREGROUND = "INSUFFICIENT_FOREGROUND"
     FRAME_BORDER_CONTACT = "FRAME_BORDER_CONTACT"
     INSUFFICIENT_VIEWS = "INSUFFICIENT_VIEWS"
@@ -35,12 +33,14 @@ class RejectionReason(StrEnum):
 
 
 class BoxCondition(StrEnum):
+    """Apilabilidad estructural. Independiente de `ObjectDimensions.valid`."""
     INTACT = "INTACT"
     DAMAGED = "DAMAGED"
     UNKNOWN = "UNKNOWN"
 
 
 class RoutingHint(StrEnum):
+    """Que hacer con la caja: seguir al CoM (`NORMAL`) o contenedor (`ERROR_ZONE`)."""
     NORMAL = "NORMAL"
     ERROR_ZONE = "ERROR_ZONE"
 
@@ -53,6 +53,12 @@ class StructuralDamageKind(StrEnum):
 
 @dataclass(frozen=True)
 class DamageReport:
+    """Defecto estructural publicado. `None` en `ObjectDimensions` = intacta.
+
+    In: sale de `assess_damage`. Out: `kind`, `severity_m` (metros),
+    `location` (`face:+x` / `corner:+x+y+z`) y `evidence` numerica.
+    """
+
     kind: StructuralDamageKind
     severity_m: float
     location: str
@@ -98,6 +104,8 @@ def snap_to_catalogue(dimensions: Dimensions3D, step_m: float) -> Dimensions3D |
 
 @dataclass(frozen=True)
 class CameraIntrinsics:
+    """Intrinsecos pinhole en pixeles. In: calibracion. Out: campos fx, fy, cx, cy, tamaño."""
+
     width: int
     height: int
     fx: float
@@ -170,7 +178,38 @@ class CuboidPose:
 
 
 @dataclass(frozen=True)
+class HeldBoxHandoff:
+    """Estado al cerrar este modulo, para el calculo de centro de masas.
+
+    In: `ObjectDimensions` de `measure()` y si el gripper sigue soldado.
+    Out: `held=True` solo si la caja intacta permanece sujeta. El siguiente
+    proceso no reagarra: mueve el bloque ya en el terminal.
+    """
+
+    dimensions: ObjectDimensions
+    held: bool
+    grasp_face: str = "-z"
+    frame_id: str = "ur10e_attachment_site"
+
+    def ready_for_com(self) -> bool:
+        """True si hay medida valida, caja apilable y agarre activo."""
+
+        return (
+            self.held
+            and self.dimensions.valid
+            and self.dimensions.condition is BoxCondition.INTACT
+            and self.dimensions.routing is RoutingHint.NORMAL
+        )
+
+
+@dataclass(frozen=True)
 class ObjectDimensions:
+    """Salida publica de P3+P4. In: `measure()`. Out: L/W/H, validez y routing.
+
+    `valid` es calidad de medida. `condition`/`routing` son apilabilidad.
+    El pale usa `dimensions_snapped_m`. Schema 4.
+    """
+
     object_id: str
     timestamp_s: float
     frame_id: str

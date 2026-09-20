@@ -3,20 +3,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from object_profiling.evaluation.checkpoint import NOMINAL_BOX
 from object_profiling.config import AppConfig
 from object_profiling.contracts import RejectionReason
-from object_profiling.station.environment import ProfilingEnvironment
-from object_profiling.evaluation.metrics import GroundTruthRenderer, evaluate_segmentation
 from object_profiling.measure.perception import (
-    observation_to_scan_view,
-    points_in_tool_frame,
     segment_foreground,
     tool_volume_bounds_m,
 )
-from object_profiling.station.scanning import run_fixed_scan
-from object_profiling.evaluation.audits.segmentation import audit_segmentation_suite
-from object_profiling.station.camera import RGBDSensor
 
 CONFIG = AppConfig()
 FAR_BACKGROUND_M = 2.0
@@ -90,8 +82,6 @@ def test_tool_volume_is_derived_from_the_declared_box_range() -> None:
     horizontal = max(CONFIG.box_range.length_m[1], CONFIG.box_range.width_m[1]) / 2.0 + margin
     assert lower[:2] == pytest.approx([-horizontal, -horizontal])
     assert upper[:2] == pytest.approx([horizontal, horizontal])
-    # El limite superior en z es el plano de contacto de las copas, con holgura
-    # minima: un margen generoso metia las propias copas en la nube.
     assert lower[2] == pytest.approx(offset - CONFIG.sensor.cup_plane_margin_m)
     assert upper[2] == pytest.approx(offset + CONFIG.box_range.height_m[1] + margin)
 
@@ -102,98 +92,3 @@ def test_the_crop_excludes_the_suction_cups() -> None:
     lower, _upper = tool_volume_bounds_m(CONFIG)
 
     assert lower[2] > 0.080
-
-
-@pytest.fixture(scope="module")
-def nominal_cycle():
-    environment = ProfilingEnvironment.create(NOMINAL_BOX, CONFIG, attach_box=False)
-    sensor = RGBDSensor(environment)
-    truth_renderer = GroundTruthRenderer(environment)
-    truths: dict[str, object] = {}
-
-    def on_capture(pose, _observation, _backgrounds) -> None:
-        truths[pose.name] = truth_renderer.masks()
-
-    try:
-        cycle = run_fixed_scan(environment, sensor, on_capture=on_capture)
-        yield cycle, truths
-    finally:
-        sensor.close()
-        truth_renderer.close()
-
-
-def test_observable_points_land_inside_the_tool_volume(nominal_cycle) -> None:
-    cycle, _truths = nominal_cycle
-    lower, upper = tool_volume_bounds_m(CONFIG)
-
-    for observation in cycle.observations:
-        background = cycle.backgrounds.depth_for(observation.pose_name)
-        segmentation = segment_foreground(observation.depth_m, background, CONFIG.sensor)
-        points = points_in_tool_frame(observation, segmentation.interior_mask, CONFIG)
-
-        assert points.shape[0] > 1_000
-        assert np.all(points >= lower)
-        assert np.all(points <= upper)
-
-
-def test_scan_views_are_produced_for_every_pose(nominal_cycle) -> None:
-    cycle, _truths = nominal_cycle
-
-    for observation in cycle.observations:
-        background = cycle.backgrounds.depth_for(observation.pose_name)
-        view, reason = observation_to_scan_view(observation, background, CONFIG)
-
-        assert reason is None
-        assert view is not None
-        assert view.pose_name == observation.pose_name
-        assert not view.touches_border
-        assert view.points_tool_m.shape[1] == 3
-
-
-def test_background_from_another_pose_degrades_segmentation(nominal_cycle) -> None:
-    """Un fondo equivocado no puede pasar desapercibido."""
-
-    cycle, truths = nominal_cycle
-    yaw_90 = next(o for o in cycle.observations if o.pose_name == "SCAN_YAW_90")
-
-    correct = segment_foreground(
-        yaw_90.depth_m, cycle.backgrounds.depth_for("SCAN_YAW_90"), CONFIG.sensor
-    )
-    # Desde abajo los yaws apenas cambian el recorte de la caja; un fondo mas
-    # cercano que el objeto si deja la mascara vacia.
-    near_background = np.full_like(yaw_90.depth_m, 0.10)
-    swapped = segment_foreground(yaw_90.depth_m, near_background, CONFIG.sensor)
-    truth = truths["SCAN_YAW_90"]
-
-    correct_iou = evaluate_segmentation(correct.mask, truth).intersection_over_union
-    swapped_iou = evaluate_segmentation(swapped.mask, truth).intersection_over_union
-
-    assert correct_iou > 0.99
-    assert swapped_iou < 0.1
-    assert int(np.count_nonzero(swapped.mask)) < int(np.count_nonzero(correct.mask))
-
-
-def test_segmentation_is_deterministic(nominal_cycle) -> None:
-    cycle, _truths = nominal_cycle
-    observation = cycle.observations[0]
-    background = cycle.backgrounds.depth_for(observation.pose_name)
-
-    first = segment_foreground(observation.depth_m, background, CONFIG.sensor)
-    second = segment_foreground(observation.depth_m, background, CONFIG.sensor)
-
-    np.testing.assert_array_equal(first.mask, second.mask)
-    np.testing.assert_array_equal(first.interior_mask, second.interior_mask)
-
-
-def test_observable_segmentation_matches_ground_truth_across_range_and_poses() -> None:
-    """Seis combinaciones de tamano y pose, sin usar el ID de box_geom."""
-
-    report = audit_segmentation_suite()
-
-    assert report["valid"] is True
-    assert len(report["records"]) == 6
-    assert report["worst_intersection_over_union"] > 0.95
-    assert report["worst_precision"] > 0.95
-    assert report["worst_recall"] > 0.99
-    # Desde abajo, la caja maxima en YAW_0 puede mezclar el apoyo de recogida
-    # en el recorte; no son copas. El umbral de auditoria es 0,95.

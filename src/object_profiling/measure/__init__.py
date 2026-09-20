@@ -1,4 +1,4 @@
-"""Medicion pura: observaciones y fondos dentro, ObjectDimensions fuera."""
+"""MERGE: medicion pura. Observaciones y fondos dentro, ObjectDimensions fuera."""
 
 from .background import BackgroundSet, MissingBackgroundError
 from .measurement import (

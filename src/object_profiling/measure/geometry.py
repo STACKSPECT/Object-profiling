@@ -1,3 +1,8 @@
+"""MERGE: ajuste de cuboide alineado al TCP.
+
+In: `FusedCloud`. Out: `CuboidEstimate` (L/W/H, incertidumbre) o `RejectionReason`.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

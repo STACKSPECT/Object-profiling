@@ -1,3 +1,8 @@
+"""MERGE: fusion de nubes en `ur10e_attachment_site`.
+
+In: `ScanView` ya en el TCP. Out: `FusedCloud` concatenada.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

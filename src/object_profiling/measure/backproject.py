@@ -1,3 +1,5 @@
+"""MERGE: retroproyeccion pinhole de profundidad a puntos mundo."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -20,6 +22,7 @@ def lateral_pitch_m(observation: CameraObservation, mask: np.ndarray) -> float:
 
 
 def backproject_depth(observation: CameraObservation, mask: np.ndarray) -> np.ndarray:
+    """In: RGB-D y mascara. Out: puntos (N, 3) en el marco mundo de la camara."""
     rows, cols = np.nonzero(mask)
     depths = observation.depth_m[rows, cols]
     valid = np.isfinite(depths) & (depths > 0.0)

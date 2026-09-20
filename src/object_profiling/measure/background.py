@@ -1,3 +1,5 @@
+"""MERGE: fondos de estacion vacia por pose. Solo el tipo; la captura es OVERLAP."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -35,6 +37,7 @@ class BackgroundSet:
     backgrounds: tuple[PoseBackground, ...]
 
     def depth_for(self, pose_name: str) -> np.ndarray:
+        """In: nombre de pose. Out: profundidad (H, W) en metros. Raise si falta."""
         for background in self.backgrounds:
             if background.pose_name == pose_name:
                 return background.depth_m
